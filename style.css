@@ -1,7 +1,7 @@
 ﻿@import url("fonts/fonts.css");
 @import url("media.css");
 * {
-	font-family: "-Proxima Nova", "Helvetica Neue", Helvetica, Roboto, sans-serif;
+	font-family: "-Proxima Nova", "Helvetica Neue", HelveticaNeue, Helvetica, Roboto, sans-serif;
 	color: #333;
 	font-weight: 400;
 }
