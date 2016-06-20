@@ -1,0 +1,60 @@
+body {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.card {
+	box-sizing: border-box;
+	width: 600px;
+	background: white;
+	padding-bottom: 8px;
+	box-shadow: 0 2px 3px 0 rgba(0,0,0,0.1);
+}
+
+dl dt {
+	width: 100px;
+}
+
+ul li .hash {
+	float: right;
+	width: 50%;
+	margin-left: 5px;
+}
+
+
+@media only screen 
+and (max-width : 667px) {
+	body {		
+		align-items: flex-start;
+	}
+	.card {
+		width: 100%;
+		min-height: 100%;
+	}
+
+	dl dt {
+		width: 50px;
+	}
+	ul li {
+		display: block;
+	}
+	ul li .hash {
+		float: none;
+		box-sizing: border-box;
+		width: 90%;
+		padding: 12px 36px;
+		overflow: hidden;
+	}
+	
+	section.company {
+		margin: 0;
+	}
+}
+
+@media only screen 
+and (min-width : 668px) {
+	a:hover:after {
+		transform: scale(1, 1);
+	}
+}
