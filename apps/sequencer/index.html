@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green" data-font="sharp">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SEQ-86 — synth lab · zdanowicz.dev</title>
+    <meta name="description" content="SEQ-86: a CLI-controlled step sequencer and synthesizer. Moods, tones, scales, major/minor.">
+    <meta name="theme-color" content="#050807">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050807'/%3E%3Cpath d='M16 5 L27 16 L16 27 L5 16 Z' fill='none' stroke='%233df58c' stroke-width='2.5'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&family=Martian+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .seq-wrap { max-width: 1100px; margin: 0 auto; padding: 92px 24px 40px; }
+        .seq-layout { display: grid; grid-template-columns: 1fr 270px; gap: 18px; align-items: start; }
+
+        /* grid */
+        .grid-panel .panel-inner { padding: 18px; }
+        .seq-grid { display: grid; grid-template-columns: 56px repeat(16, 1fr); gap: 4px; }
+        .seq-grid .rlabel {
+            display: flex; align-items: center; font-size: 10px; letter-spacing: .14em;
+            color: var(--dim); padding-right: 6px; justify-content: flex-end;
+        }
+        .cell {
+            aspect-ratio: 1; min-width: 0; border: 1px solid var(--line); background: transparent;
+            cursor: pointer; padding: 0; transition: background .08s ease, border-color .08s ease;
+        }
+        .cell:nth-child(16n + 6), .cell:nth-child(16n + 10), .cell:nth-child(16n + 14) { }
+        .cell.q { border-color: var(--line-bright); }
+        .cell:hover { border-color: var(--accent); }
+        .cell.on { background: var(--accent); border-color: var(--accent); }
+        .cell.on.drum { background: var(--warn); border-color: var(--warn); }
+        .cell.ph { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, white); }
+        .cell.on.ph { background: color-mix(in srgb, var(--accent) 70%, white); }
+
+        /* rack */
+        .rack { display: flex; flex-direction: column; gap: 14px; }
+        .rack .panel-inner { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .rack h4 { font-size: 10px; letter-spacing: .26em; color: var(--dim); font-weight: 500; }
+        .btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sbtn {
+            font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em;
+            background: transparent; color: var(--text); border: 1px solid var(--line-bright);
+            padding: 5px 9px; cursor: pointer; transition: all .12s ease;
+        }
+        .sbtn:hover { border-color: var(--accent); color: var(--accent); }
+        .sbtn.sel { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+        .sbtn.big { width: 100%; padding: 11px; font-size: 12px; letter-spacing: .2em; }
+        select.sbtn { appearance: none; }
+        .sliderrow { display: grid; grid-template-columns: 58px 1fr 38px; gap: 10px; align-items: center; font-size: 10px; letter-spacing: .12em; color: var(--dim); }
+        .sliderrow output { color: var(--accent); text-align: right; font-size: 11px; }
+        input[type="range"] { -webkit-appearance: none; background: transparent; width: 100%; }
+        input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: var(--line-bright); }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 14px; margin-top: -5px;
+            background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+        }
+        input[type="range"]::-moz-range-track { height: 4px; background: var(--line-bright); }
+        input[type="range"]::-moz-range-thumb { width: 12px; height: 14px; border: 0; border-radius: 0; background: var(--accent); }
+
+        /* cli */
+        .cli-panel { margin-top: 18px; }
+        .cli-panel .panel-inner { padding: 16px 18px; }
+        #cliLog { font-size: 12px; line-height: 1.75; color: var(--dim); white-space: pre-wrap; max-height: 150px; overflow-y: auto; }
+        #cliLog b { color: var(--accent); font-weight: 500; }
+        .cli-row { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 12px; }
+        .cli-row label { color: var(--accent); font-weight: 700; font-size: 13px; }
+        #cli { flex: 1; background: transparent; border: 0; outline: 0; color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+
+        .seq-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 24px; flex-wrap: wrap; }
+        .seq-title { font-family: var(--font-display); font-size: clamp(26px, 4vw, 40px); font-weight: 700; letter-spacing: -.01em; }
+        .seq-sub { color: var(--dim); font-size: 12px; letter-spacing: .18em; }
+
+        @media (max-width: 900px) {
+            .seq-layout { grid-template-columns: 1fr; }
+            .seq-grid { grid-template-columns: 40px repeat(16, 1fr); gap: 2px; }
+            .seq-wrap { padding-top: 76px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="fx-aurora" aria-hidden="true"></div>
+
+    <header class="statusbar">
+        <a class="brand" href="../../">ZDANOWICZ.DEV<span class="caret">▮</span></a>
+        <nav class="topnav"><a href="../">cd ~/apps</a></nav>
+        <div class="sysmeta">
+            <span class="online" id="xport"><i class="dot"></i>STOPPED</span>
+            <span class="clock" id="bpmRead">96 BPM</span>
+        </div>
+    </header>
+
+    <main class="seq-wrap">
+        <div class="seq-head">
+            <span class="seq-title">SEQ-86</span>
+            <span class="seq-sub">SYNTH LAB · 16-STEP SEQUENCER · CLI + GUI</span>
+        </div>
+
+        <div class="seq-layout">
+            <div class="panel grid-panel"><div class="panel-inner">
+                <div class="seq-grid" id="grid"></div>
+            </div></div>
+
+            <aside class="rack">
+                <div class="panel"><div class="panel-inner">
+                    <h4>TRANSPORT</h4>
+                    <button class="sbtn big" id="playBtn">▶ PLAY</button>
+                    <div class="sliderrow"><span>BPM</span><input type="range" id="bpm" min="50" max="170" value="96"><output id="bpmOut">96</output></div>
+                    <div class="sliderrow"><span>SWING</span><input type="range" id="swing" min="0" max="60" value="0"><output id="swingOut">0</output></div>
+                </div></div>
+
+                <div class="panel"><div class="panel-inner">
+                    <h4>MOOD</h4>
+                    <div class="btnrow" id="moods"></div>
+                </div></div>
+
+                <div class="panel"><div class="panel-inner">
+                    <h4>KEY</h4>
+                    <div class="btnrow">
+                        <button class="sbtn" id="majBtn">MAJOR</button>
+                        <button class="sbtn sel" id="minBtn">MINOR</button>
+                        <select class="sbtn" id="scaleSel"></select>
+                        <select class="sbtn" id="rootSel"></select>
+                    </div>
+                </div></div>
+
+                <div class="panel"><div class="panel-inner">
+                    <h4>TONE</h4>
+                    <div class="btnrow" id="waves"></div>
+                    <div class="sliderrow"><span>CUTOFF</span><input type="range" id="cutoff" min="0" max="100" value="60"><output id="cutoffOut">60</output></div>
+                    <div class="sliderrow"><span>DELAY</span><input type="range" id="delay" min="0" max="100" value="45"><output id="delayOut">45</output></div>
+                </div></div>
+
+                <div class="panel"><div class="panel-inner">
+                    <h4>PATTERN</h4>
+                    <div class="btnrow">
+                        <button class="sbtn" id="randBtn">RAND</button>
+                        <button class="sbtn" id="clearBtn">CLEAR</button>
+                    </div>
+                    <div class="sliderrow"><span>DENSITY</span><input type="range" id="density" min="5" max="80" value="30"><output id="densityOut">30</output></div>
+                </div></div>
+            </aside>
+        </div>
+
+        <div class="panel cli-panel"><div class="panel-inner">
+            <div id="cliLog"><b>SEQ-86 OK.</b> type `help` for commands. space = play/stop. click cells to compose.</div>
+            <div class="cli-row"><label>seq&gt;</label><input id="cli" autocomplete="off" spellcheck="false" placeholder="mood dread · scale lydian · bpm 120 · wave saw · rand · play"></div>
+        </div></div>
+    </main>
+
+    <script>
+    (() => {
+        "use strict";
+        const $ = (s, c = document) => c.querySelector(s);
+        const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+        try {
+            const t = localStorage.getItem("theme");
+            if (t) document.documentElement.dataset.theme = t;
+            const f = localStorage.getItem("font");
+            if (f) document.documentElement.dataset.font = f;
+        } catch {}
+
+        /* ---------- music data ---------- */
+
+        const SCALES = {
+            major:    [0, 2, 4, 5, 7, 9, 11, 12],
+            minor:    [0, 2, 3, 5, 7, 8, 10, 12],
+            pentmaj:  [0, 2, 4, 7, 9, 12, 14, 16],
+            pentmin:  [0, 3, 5, 7, 10, 12, 15, 17],
+            dorian:   [0, 2, 3, 5, 7, 9, 10, 12],
+            phrygian: [0, 1, 3, 5, 7, 8, 10, 12],
+            lydian:   [0, 2, 4, 6, 7, 9, 11, 12],
+            blues:    [0, 3, 5, 6, 7, 10, 12, 15],
+        };
+        const ROOTS = { A1: 33, C2: 36, D2: 38, E2: 40, F2: 41, G2: 43, A2: 45, C3: 48, E3: 52 };
+        const WAVES = ["sine", "triangle", "sawtooth", "square"];
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const STEPS = 16, NROWS = 8; // + kick + hat = 10 rows
+        const midiF = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+        const MOODS = {
+            ambient: { scale: "pentmin", root: "A2", bpm: 72, wave: "sine", cutoff: 45, delay: 75, swing: 0, gen: "sparse" },
+            ops:     { scale: "minor", root: "A2", bpm: 108, wave: "square", cutoff: 55, delay: 35, swing: 8, gen: "grid" },
+            dread:   { scale: "phrygian", root: "A1", bpm: 58, wave: "sawtooth", cutoff: 22, delay: 55, swing: 0, gen: "low" },
+            rave:    { scale: "minor", root: "C2", bpm: 138, wave: "sawtooth", cutoff: 78, delay: 25, swing: 12, gen: "rave" },
+            sunrise: { scale: "lydian", root: "C2", bpm: 96, wave: "triangle", cutoff: 65, delay: 50, swing: 5, gen: "arp" },
+        };
+
+        const state = {
+            scale: "minor", root: "A2", wave: "sawtooth",
+            bpm: 96, swing: 0, cutoff: 60, delay: 45, density: 30,
+            pattern: Array.from({ length: NROWS + 2 }, () => new Array(STEPS).fill(false)),
+            playing: false,
+        };
+
+        /* ---------- audio engine ---------- */
+
+        let ctx = null, master, filter, delayNode, fbGain, delaySend;
+        let nextTime = 0, step = 0, timer = null;
+        const phQueue = [];
+
+        const ensureCtx = () => {
+            if (ctx) return true;
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return false;
+            ctx = new AC();
+            master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+            filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.Q.value = 4;
+            filter.connect(master);
+            delayNode = ctx.createDelay(1.5);
+            fbGain = ctx.createGain(); fbGain.gain.value = 0.4;
+            delayNode.connect(fbGain); fbGain.connect(delayNode);
+            delaySend = ctx.createGain();
+            delaySend.connect(delayNode); delayNode.connect(filter);
+            applyTone();
+            return true;
+        };
+
+        const applyTone = () => {
+            if (!ctx) return;
+            filter.frequency.setTargetAtTime(120 * Math.pow(60, state.cutoff / 100), ctx.currentTime, 0.05); // 120Hz..7.2kHz
+            delaySend.gain.setTargetAtTime(state.delay / 100 * 0.9, ctx.currentTime, 0.05);
+            delayNode.delayTime.setTargetAtTime((60 / state.bpm / 4) * 3, ctx.currentTime, 0.05); // dotted 8th
+        };
+
+        const rowFreq = (row) => { // row 0 = top = highest degree
+            const deg = SCALES[state.scale][NROWS - 1 - row];
+            return midiF(ROOTS[state.root] + deg + 12);
+        };
+        const rowName = (row) => {
+            const m = ROOTS[state.root] + SCALES[state.scale][NROWS - 1 - row] + 12;
+            return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1);
+        };
+
+        const pluck = (freq, when, vel = 0.5) => {
+            const o = ctx.createOscillator(); o.type = state.wave; o.frequency.value = freq;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0, when);
+            g.gain.linearRampToValueAtTime(0.22 * vel, when + 0.008);
+            g.gain.exponentialRampToValueAtTime(0.0001, when + 0.42);
+            o.connect(g); g.connect(filter); g.connect(delaySend);
+            o.start(when); o.stop(when + 0.5);
+        };
+        const kick = (when) => {
+            const o = ctx.createOscillator(); o.type = "sine";
+            o.frequency.setValueAtTime(120, when);
+            o.frequency.exponentialRampToValueAtTime(38, when + 0.12);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.55, when);
+            g.gain.exponentialRampToValueAtTime(0.001, when + 0.22);
+            o.connect(g); g.connect(master);
+            o.start(when); o.stop(when + 0.25);
+        };
+        const hat = (when) => {
+            const len = ctx.sampleRate * 0.05;
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            const src = ctx.createBufferSource(); src.buffer = buf;
+            const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 6500;
+            const g = ctx.createGain(); g.gain.value = 0.16;
+            src.connect(hp); hp.connect(g); g.connect(master);
+            src.start(when);
+        };
+
+        const scheduleStep = (s, when) => {
+            for (let r = 0; r < NROWS; r++) if (state.pattern[r][s]) pluck(rowFreq(r), when);
+            if (state.pattern[NROWS][s]) kick(when);
+            if (state.pattern[NROWS + 1][s]) hat(when);
+            phQueue.push({ s, when });
+        };
+
+        const tick = () => {
+            const stepDur = 60 / state.bpm / 4;
+            while (nextTime < ctx.currentTime + 0.12) {
+                const swung = nextTime + (step % 2 ? stepDur * state.swing / 100 * 0.6 : 0);
+                scheduleStep(step, swung);
+                nextTime += stepDur;
+                step = (step + 1) % STEPS;
+            }
+        };
+
+        const play = () => {
+            if (!ensureCtx()) return log("no WebAudio in this browser.");
+            ctx.resume();
+            if (state.playing) return;
+            state.playing = true;
+            step = 0; nextTime = ctx.currentTime + 0.06;
+            timer = setInterval(tick, 25);
+            $("#xport").innerHTML = '<i class="dot"></i>RUNNING';
+            $("#playBtn").textContent = "■ STOP";
+            $("#playBtn").classList.add("sel");
+        };
+        const stop = () => {
+            state.playing = false;
+            if (timer) clearInterval(timer), (timer = null);
+            phQueue.length = 0;
+            paintPlayhead(-1);
+            $("#xport").innerHTML = '<i class="dot"></i>STOPPED';
+            $("#playBtn").textContent = "▶ PLAY";
+            $("#playBtn").classList.remove("sel");
+        };
+
+        /* ---------- grid UI ---------- */
+
+        const grid = $("#grid");
+        let cellEls = [];
+        const buildGrid = () => {
+            grid.innerHTML = "";
+            cellEls = [];
+            const labels = [...Array.from({ length: NROWS }, (_, r) => rowName(r)), "KCK", "HAT"];
+            for (let r = 0; r < NROWS + 2; r++) {
+                const lab = document.createElement("span");
+                lab.className = "rlabel"; lab.textContent = labels[r];
+                grid.appendChild(lab);
+                for (let s = 0; s < STEPS; s++) {
+                    const b = document.createElement("button");
+                    b.className = "cell" + (s % 4 === 0 ? " q" : "") + (r >= NROWS ? " drum" : "");
+                    b.dataset.r = r; b.dataset.s = s;
+                    if (state.pattern[r][s]) b.classList.add("on");
+                    b.addEventListener("click", () => {
+                        state.pattern[r][s] = !state.pattern[r][s];
+                        b.classList.toggle("on");
+                        if (navigator.vibrate) navigator.vibrate(4);
+                        if (state.pattern[r][s] && ctx && r < NROWS) pluck(rowFreq(r), ctx.currentTime);
+                    });
+                    grid.appendChild(b);
+                    cellEls.push(b);
+                }
+            }
+        };
+        const refreshLabels = () => {
+            $$(".rlabel", grid).forEach((el, r) => {
+                el.textContent = r < NROWS ? rowName(r) : (r === NROWS ? "KCK" : "HAT");
+            });
+        };
+        const paintPattern = () => {
+            cellEls.forEach((b) => {
+                b.classList.toggle("on", state.pattern[+b.dataset.r][+b.dataset.s]);
+            });
+        };
+        let phCol = -1;
+        const paintPlayhead = (col) => {
+            if (col === phCol) return;
+            phCol = col;
+            cellEls.forEach((b) => b.classList.toggle("ph", +b.dataset.s === col));
+        };
+        (function phLoop() {
+            requestAnimationFrame(phLoop);
+            if (!state.playing || !ctx) return;
+            while (phQueue.length > 1 && phQueue[1].when <= ctx.currentTime) phQueue.shift();
+            if (phQueue.length) paintPlayhead(phQueue[0].when <= ctx.currentTime ? phQueue[0].s : phCol);
+        })();
+
+        /* ---------- pattern generators ---------- */
+
+        const clearPat = () => state.pattern.forEach((row) => row.fill(false));
+        const gen = (kind) => {
+            clearPat();
+            const d = state.density / 100;
+            const P = state.pattern;
+            if (kind === "rave") {
+                for (let s = 0; s < 16; s += 4) P[NROWS][s] = true;
+                for (let s = 2; s < 16; s += 4) P[NROWS + 1][s] = true;
+                for (let s = 0; s < 16; s++) if (Math.random() < d + 0.2) P[5 + (Math.random() * 3 | 0)][s] = true;
+                for (let s = 0; s < 16; s += 2) if (Math.random() < d) P[(Math.random() * 4 | 0)][s] = true;
+            } else if (kind === "grid") {
+                P[NROWS][0] = P[NROWS][8] = true;
+                for (let s = 2; s < 16; s += 4) P[NROWS + 1][s] = true;
+                for (let s = 0; s < 16; s += 2) if (Math.random() < d + 0.15) P[(Math.random() * NROWS) | 0][s] = true;
+            } else if (kind === "low") {
+                P[NROWS][0] = true;
+                for (let s = 0; s < 16; s++) if (Math.random() < d * 0.8) P[5 + ((Math.random() * 3) | 0)][s] = true;
+                if (Math.random() < 0.7) P[0][12] = true; // one high cry
+            } else if (kind === "arp") {
+                for (let s = 0; s < 16; s++) if (s % 2 === 0) P[NROWS - 1 - ((s / 2) % NROWS)][s] = true;
+                for (let s = 0; s < 16; s += 8) P[NROWS][s] = true;
+            } else { // sparse
+                for (let s = 0; s < 16; s++) if (Math.random() < d * 0.7) P[(Math.random() * NROWS) | 0][s] = true;
+            }
+            paintPattern();
+        };
+
+        /* ---------- controls binding ---------- */
+
+        const log = (msg) => {
+            const el = $("#cliLog");
+            el.innerHTML += "\n" + msg;
+            el.scrollTop = el.scrollHeight;
+        };
+
+        const SLIDERS = [["bpm", "bpm"], ["swing", "swing"], ["cutoff", "cutoff"], ["delay", "delay"], ["density", "density"]];
+        SLIDERS.forEach(([id, key]) => {
+            const inp = $("#" + id), out = $("#" + id + "Out");
+            inp.addEventListener("input", () => {
+                state[key] = +inp.value;
+                out.textContent = inp.value;
+                if (key === "bpm") $("#bpmRead").textContent = inp.value + " BPM";
+                applyTone();
+            });
+        });
+        const setSlider = (key, v) => {
+            state[key] = v;
+            const inp = $("#" + key); if (inp) { inp.value = v; $("#" + key + "Out").textContent = v; }
+            if (key === "bpm") $("#bpmRead").textContent = v + " BPM";
+            applyTone();
+        };
+
+        const moodsBox = $("#moods");
+        Object.keys(MOODS).forEach((m) => {
+            const b = document.createElement("button");
+            b.className = "sbtn"; b.textContent = m.toUpperCase(); b.dataset.mood = m;
+            b.addEventListener("click", () => applyMood(m));
+            moodsBox.appendChild(b);
+        });
+        const applyMood = (m) => {
+            const M = MOODS[m]; if (!M) return false;
+            state.scale = M.scale; state.root = M.root; state.wave = M.wave;
+            setSlider("bpm", M.bpm); setSlider("swing", M.swing);
+            setSlider("cutoff", M.cutoff); setSlider("delay", M.delay);
+            $("#scaleSel").value = M.scale; $("#rootSel").value = M.root;
+            syncKeyBtns(); syncWaveBtns(); refreshLabels();
+            $$("[data-mood]", moodsBox).forEach((b) => b.classList.toggle("sel", b.dataset.mood === m));
+            gen(M.gen);
+            return true;
+        };
+
+        const scaleSel = $("#scaleSel");
+        Object.keys(SCALES).forEach((s) => scaleSel.add(new Option(s.toUpperCase(), s)));
+        scaleSel.value = state.scale;
+        scaleSel.addEventListener("change", () => { state.scale = scaleSel.value; syncKeyBtns(); refreshLabels(); });
+
+        const rootSel = $("#rootSel");
+        Object.keys(ROOTS).forEach((r) => rootSel.add(new Option(r, r)));
+        rootSel.value = state.root;
+        rootSel.addEventListener("change", () => { state.root = rootSel.value; refreshLabels(); });
+
+        const syncKeyBtns = () => {
+            $("#majBtn").classList.toggle("sel", state.scale === "major");
+            $("#minBtn").classList.toggle("sel", state.scale === "minor");
+        };
+        $("#majBtn").addEventListener("click", () => { state.scale = "major"; scaleSel.value = "major"; syncKeyBtns(); refreshLabels(); });
+        $("#minBtn").addEventListener("click", () => { state.scale = "minor"; scaleSel.value = "minor"; syncKeyBtns(); refreshLabels(); });
+
+        const wavesBox = $("#waves");
+        WAVES.forEach((w) => {
+            const b = document.createElement("button");
+            b.className = "sbtn" + (w === state.wave ? " sel" : "");
+            b.textContent = w === "sawtooth" ? "SAW" : w.toUpperCase().slice(0, 4);
+            b.dataset.wave = w;
+            b.addEventListener("click", () => { state.wave = w; syncWaveBtns(); });
+            wavesBox.appendChild(b);
+        });
+        const syncWaveBtns = () => $$("[data-wave]", wavesBox).forEach((b) => b.classList.toggle("sel", b.dataset.wave === state.wave));
+
+        $("#playBtn").addEventListener("click", () => (state.playing ? stop() : play()));
+        $("#randBtn").addEventListener("click", () => gen("sparse"));
+        $("#clearBtn").addEventListener("click", () => { clearPat(); paintPattern(); });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.code === "Space" && document.activeElement !== $("#cli")) {
+                e.preventDefault();
+                state.playing ? stop() : play();
+            }
+        });
+
+        /* ---------- CLI ---------- */
+
+        const HELP =
+`<b>commands</b>: play · stop · bpm &lt;50-170&gt; · swing &lt;0-60&gt; · cutoff &lt;0-100&gt; · delay &lt;0-100&gt;
+scale &lt;${Object.keys(SCALES).join("|")}&gt; · root &lt;${Object.keys(ROOTS).join("|")}&gt;
+wave &lt;sine|tri|saw|square&gt; · mood &lt;${Object.keys(MOODS).join("|")}&gt;
+major · minor · rand [density 5-80] · clear · status · exit`;
+
+        const cli = $("#cli");
+        cli.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter") return;
+            const raw = cli.value.trim(); cli.value = "";
+            if (!raw) return;
+            log("<b>seq&gt;</b> " + raw.replace(/</g, "&lt;"));
+            const [cmd, ...args] = raw.toLowerCase().split(/\s+/);
+            const A = args[0];
+            const ok = (m) => log(m);
+            switch (cmd) {
+                case "help": ok(HELP); break;
+                case "play": play(); ok("running."); break;
+                case "stop": stop(); ok("stopped."); break;
+                case "bpm": if (+A >= 50 && +A <= 170) { setSlider("bpm", +A); ok("bpm = " + A); } else ok("bpm 50-170"); break;
+                case "swing": if (+A >= 0 && +A <= 60) { setSlider("swing", +A); ok("swing = " + A + "%"); } else ok("swing 0-60"); break;
+                case "cutoff": if (+A >= 0 && +A <= 100) { setSlider("cutoff", +A); ok("cutoff = " + A); } else ok("cutoff 0-100"); break;
+                case "delay": if (+A >= 0 && +A <= 100) { setSlider("delay", +A); ok("delay = " + A); } else ok("delay 0-100"); break;
+                case "scale":
+                    if (SCALES[A]) { state.scale = A; scaleSel.value = A; syncKeyBtns(); refreshLabels(); ok("scale = " + A); }
+                    else ok("scales: " + Object.keys(SCALES).join(", ")); break;
+                case "root": {
+                    const R = (A || "").toUpperCase();
+                    if (ROOTS[R]) { state.root = R; rootSel.value = R; refreshLabels(); ok("root = " + R); }
+                    else ok("roots: " + Object.keys(ROOTS).join(", ")); break;
+                }
+                case "wave": {
+                    const map = { sine: "sine", tri: "triangle", triangle: "triangle", saw: "sawtooth", sawtooth: "sawtooth", square: "square", sqr: "square" };
+                    if (map[A]) { state.wave = map[A]; syncWaveBtns(); ok("wave = " + map[A]); }
+                    else ok("waves: sine, tri, saw, square"); break;
+                }
+                case "mood": applyMood(A) ? ok("mood = " + A + ". pattern regenerated.") : ok("moods: " + Object.keys(MOODS).join(", ")); break;
+                case "major": state.scale = "major"; scaleSel.value = "major"; syncKeyBtns(); refreshLabels(); ok("key = major"); break;
+                case "minor": state.scale = "minor"; scaleSel.value = "minor"; syncKeyBtns(); refreshLabels(); ok("key = minor"); break;
+                case "rand": if (A && +A >= 5 && +A <= 80) setSlider("density", +A); gen("sparse"); ok("pattern randomized @ density " + state.density); break;
+                case "clear": clearPat(); paintPattern(); ok("pattern cleared."); break;
+                case "status": ok(`${state.playing ? "RUNNING" : "STOPPED"} · ${state.bpm}bpm · ${state.scale}/${state.root} · ${state.wave} · cutoff ${state.cutoff} · delay ${state.delay} · swing ${state.swing}%`); break;
+                case "exit": location.href = "../"; break;
+                default: ok("unknown command. `help`?");
+            }
+        });
+
+        /* ---------- init ---------- */
+
+        buildGrid();
+        applyMood("ops");
+        stop();
+    })();
+    </script>
+</body>
+</html>

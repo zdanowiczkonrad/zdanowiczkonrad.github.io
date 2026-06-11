@@ -1,54 +1,230 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="green" data-font="sharp">
 <head>
-	<meta charset="utf-8">
-	<meta http-equiv="x-ua-compatible" content="ie=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Konrad Zdanowicz</title>
-	<link rel="stylesheet" type="text/css" href="vintage.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KONRAD ZDANOWICZ — VP Engineering · zdanowicz.dev</title>
+    <meta name="description" content="Konrad Zdanowicz — VP Engineering at Ingrid. Building engineering organizations across fintech, e-commerce and AI. Wrocław, Poland.">
+    <meta property="og:title" content="KONRAD ZDANOWICZ — VP Engineering">
+    <meta property="og:description" content="Building engineering organizations across fintech, e-commerce and AI. Wrocław, Poland.">
+    <meta property="og:url" content="https://zdanowicz.dev">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#050807">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050807'/%3E%3Cpath d='M16 5 L27 16 L16 27 L5 16 Z' fill='none' stroke='%233df58c' stroke-width='2.5'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&family=Martian+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="body-noise">
-	<main class="card">
-		<header class="name">
-			<h1 class="code"><span class="markup code">Konrad Zdanowicz</span></h1>
-			<code><span class="markup code">Software Engineering</span> <span class="caret"></span></code>
-		</header>
-		<!-- test of the comment -->
-		<nav class="social">
-			<ol>
-				<li><a href="http://github.com/zdanowiczkonrad">GitHub</a>
-				<li><a href="http://linkedin.com/in/zdanowiczkonrad">LinkedIn</a>
-			</ol>
-		</nav>
-		<article class="aboutme">
-			<p>
-				
-			</p>
-		</article>
-		<section class="contact">
-			<h2>Contact me</h2>
-				<ul>
-					<li><a class="js-request-pi" href="#" data-value="phone">request a phone number</a>
-					<li><a class="js-request-pi" href="#" data-value="mail">request an e-mail</a>
-				</ul>
-		</section>
-		<input class="accordion" type="checkbox" id="details"/>
-		<section class="company">
-			<label class="title" for="details">Software Engineering Konrad Zdanowicz</label>
-			<div class="accordion-content">
-				<dl>
-				<dt>Company 
-					<dd>Software Engineering Konrad Zdanowicz
-					<dt>NIP
-					<dd>8982163511
-					<dt>REGON
-					<dd>8362469506
-					<dt>Address
-					<dd>Dmowskiego 19a/20, 50-203 Wrocław
-				</dl>
-			</div>
-		</section>
-	</main>
-	<script src="main.js"></script>
+<body>
+
+    <canvas id="worldMap" aria-hidden="true"></canvas>
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="fx-aurora" aria-hidden="true"></div>
+    <div class="fx-crt" aria-hidden="true"></div>
+    <canvas id="crtGL" aria-hidden="true"></canvas>
+    <div class="fx-noise" aria-hidden="true"></div>
+    <div class="fx-dread" aria-hidden="true"></div>
+    <canvas id="dirt" aria-hidden="true"></canvas>
+    <div class="crosshair" aria-hidden="true">
+        <span class="ch-x"></span><span class="ch-y"></span><span class="ch-read" id="chRead">X:0000 Y:0000</span>
+    </div>
+    <div class="boot" id="boot" aria-hidden="true"><pre id="bootText"></pre></div>
+    <div class="legacy-flash" id="legacyFlash" aria-hidden="true"></div>
+
+    <header class="statusbar">
+        <a class="brand" href="#subject">ZDANOWICZ.DEV<span class="caret">▮</span></a>
+        <nav class="topnav" aria-label="Sections">
+            <a href="#subject" data-nav>01·SUBJECT</a>
+            <a href="#telemetry" data-nav>02·TELEMETRY</a>
+            <a href="#operations" data-nav>03·OPS</a>
+            <a href="#stack" data-nav>04·STACK</a>
+            <a href="#contact" data-nav>05·CONTACT</a>
+            <a href="apps/">06·APPS</a>
+        </nav>
+        <div class="sysmeta">
+            <span class="online"><i class="dot"></i>SYS:ONLINE</span>
+            <span class="loc">51.11°N 17.03°E</span>
+            <span class="clock" id="clock">--:--:--</span>
+            <button class="kbtn" id="sndBtn" aria-label="Toggle sound">SND:OFF</button>
+            <button class="kbtn" id="paletteBtn" aria-label="Open command palette" title="Command palette">⌘K</button>
+        </div>
+    </header>
+
+    <main>
+
+        <!-- 01 · SUBJECT ------------------------------------------------ -->
+        <section class="section hero" id="subject">
+            <div class="seclabel reveal"><b>01</b>SUBJECT FILE<i class="rule"></i></div>
+            <div class="hero-grid">
+                <div class="hero-text">
+                    <p class="kicker reveal">// DECRYPTED · CLEARANCE: PUBLIC</p>
+                    <h1 class="name reveal" data-scramble>KONRAD ZDANOWICZ</h1>
+                    <p class="role reveal">VP ENGINEERING — <a href="https://www.ingrid.com" target="_blank" rel="noopener">INGRID</a></p>
+                    <p class="tags reveal">ENG&nbsp;LEADERSHIP · FINTECH · E-COMMERCE · AI</p>
+                    <p class="lede reveal">
+                        I build engineering organizations and planet-scale systems.
+                        Seventeen years in production — through Tipser, Bolt and now Ingrid —
+                        scaling teams, performance, AI inference.
+                        Based in Wrocław. Terminally fond of CLIs, music, design.
+                    </p>
+                    <div class="hero-actions reveal">
+                        <a class="btn btn-primary" href="#contact">ESTABLISH CONTACT</a>
+                        <a class="btn" href="https://github.com/zdanowiczkonrad" target="_blank" rel="noopener">DOSSIER: GITHUB&nbsp;↗</a>
+                        <a class="btn" href="https://www.linkedin.com/in/zdanowiczkonrad/" target="_blank" rel="noopener">DOSSIER: LINKEDIN&nbsp;↗</a>
+                    </div>
+                </div>
+                <aside class="hero-side reveal">
+                    <figure class="avatar panel">
+                        <div class="panel-inner">
+                            <div class="avatar-frame" id="avatarFrame">
+                                <img src="assets/avatar-hd.jpg" alt="Konrad Zdanowicz" width="512" height="512">
+                                <svg class="facemap" id="facemap" viewBox="0 0 100 100" aria-hidden="true"></svg>
+                                <div class="face-readout" id="faceReadout">FACE MAP v2.1 · IDLE</div>
+                            </div>
+                            <figcaption>SUBJECT — VISUAL ID</figcaption>
+                        </div>
+                    </figure>
+                    <ul class="readouts">
+                        <li><span>STATUS</span><b class="ok">OPERATIONAL</b></li>
+                        <li><span>BASE</span><b>WROCŁAW, PL</b></li>
+                        <li><span>YRS SHIPPING</span><b><span data-count="17">0</span></b></li>
+                    </ul>
+                </aside>
+            </div>
+        </section>
+
+        <!-- 02 · TELEMETRY ---------------------------------------------- -->
+        <section class="section" id="telemetry">
+            <div class="seclabel reveal"><b>02</b>CAREER TELEMETRY<i class="rule"></i></div>
+
+            <div class="panel signal-panel reveal">
+                <div class="panel-inner">
+                    <svg class="signal" id="signalSvg" role="img" aria-label="Career trajectory 2009 to now"></svg>
+                </div>
+            </div>
+
+            <ol class="career" id="career">
+                <li class="reveal">
+                    <span class="c-year">2022 — NOW</span>
+                    <span class="c-org">INGRID <i class="live-dot"></i></span>
+                    <span class="c-role">VP ENGINEERING</span>
+                    <span class="c-desc">Leading engineering for the delivery experience platform powering checkout and logistics for World e-commerce.</span>
+                </li>
+                <li class="reveal">
+                    <span class="c-year">2020 — 2022</span>
+                    <span class="c-org">BOLT</span>
+                    <span class="c-role">DIRECTOR OF ENGINEERING, EUROPE</span>
+                    <span class="c-desc">Built and led the European engineering division of the one-click checkout company through hypergrowth; owned payments, integrations, fwd deployment.</span>
+                </li>
+                <li class="reveal">
+                    <span class="c-year">2016 — 2020</span>
+                    <span class="c-org">TIPSER</span>
+                    <span class="c-role">HEAD OF ENGINEERING</span>
+                    <span class="c-desc">Embedded commerce — buyable products inside any publisher page. From senior IC to leading all eng across Wrocław and Stockholm.</span>
+                </li>
+                <li class="reveal">
+                    <span class="c-year">2009 — 2016</span>
+                    <span class="c-org">FIELD WORK</span>
+                    <span class="c-role">FULL-STACK ENGINEER</span>
+                    <span class="c-desc">JVM and web, from first production deploy to M.Sc. in Internet Engineering at Wrocław University of Science and Technology.</span>
+                </li>
+            </ol>
+        </section>
+
+        <!-- 03 · OPERATIONS --------------------------------------------- -->
+        <section class="section" id="operations">
+            <div class="seclabel reveal"><b>03</b>CURRENT OPERATIONS<i class="rule"></i></div>
+            <div class="ops-grid">
+                <article class="panel op reveal">
+                    <div class="panel-inner">
+                        <header><span class="op-id">OP-01</span><span class="op-status">ACTIVE</span></header>
+                        <h3>SCALE</h3>
+                        <p>Growing Ingrid's engineering — talent, architecture and the agentic operating system.</p>
+                    </div>
+                </article>
+                <article class="panel op reveal">
+                    <div class="panel-inner">
+                        <header><span class="op-id">OP-02</span><span class="op-status">ACTIVE</span></header>
+                        <h3>AI IN PRODUCTION</h3>
+                        <p>Agentic tooling and LLM systems where they earn their keep: developer workflow, inference, and the unglamorous middle of the stack.</p>
+                    </div>
+                </article>
+                <article class="panel op reveal">
+                    <div class="panel-inner">
+                        <header><span class="op-id">OP-03</span><span class="op-status">PERPETUAL</span></header>
+                        <h3>CRAFT</h3>
+                        <p>CLIs, low latency, purity. This page ships zero frameworks and one easter egg — <code>view-source</code> welcome.</p>
+                    </div>
+                </article>
+            </div>
+            <p class="transmissions reveal">TRANSMISSIONS <i class="rule"></i> WRITING &amp; TALKS: NONE LOGGED YET — CHANNEL RESERVED.</p>
+        </section>
+
+        <!-- 04 · STACK --------------------------------------------------- -->
+        <section class="section" id="stack">
+            <div class="seclabel reveal"><b>04</b>STACK SIGNAL<i class="rule"></i></div>
+            <ul class="stack">
+                <li class="reveal"><span class="s-label">ENGINEERING ORGS</span><span class="s-bar"><i data-level="96"></i></span><span class="s-tag">PRIMARY</span></li>
+                <li class="reveal"><span class="s-label">FINTECH / CHECKOUT</span><span class="s-bar"><i data-level="90"></i></span><span class="s-tag">FIELD-TESTED</span></li>
+                <li class="reveal"><span class="s-label">AI / LLM SYSTEMS</span><span class="s-bar"><i data-level="84"></i></span><span class="s-tag">ACTIVE</span></li>
+                <li class="reveal"><span class="s-label">SCALA / JVM</span><span class="s-bar"><i data-level="82"></i></span><span class="s-tag">FLUENT</span></li>
+                <li class="reveal"><span class="s-label">TYPESCRIPT / NODE / REACT</span><span class="s-bar"><i data-level="80"></i></span><span class="s-tag">FLUENT</span></li>
+                <li class="reveal"><span class="s-label">CLI / MCP / TOOLING</span><span class="s-bar"><i data-level="94"></i></span><span class="s-tag">DAILY DRIVER</span></li>
+            </ul>
+        </section>
+
+        <!-- 05 · CONTACT -------------------------------------------------- -->
+        <section class="section" id="contact">
+            <div class="seclabel reveal"><b>05</b>ESTABLISH CONTACT<i class="rule"></i></div>
+            <div class="panel contact-panel reveal">
+                <div class="panel-inner">
+                    <p class="prompt">$ mail <a class="mail" href="mailto:konrad@zdanowicz.dev">konrad@zdanowicz.dev</a><span class="caret">▮</span></p>
+                    <div class="contact-actions">
+                        <a class="btn btn-primary" href="mailto:konrad@zdanowicz.dev">SEND TRANSMISSION</a>
+                        <a class="btn" href="https://github.com/zdanowiczkonrad" target="_blank" rel="noopener">GITHUB&nbsp;↗</a>
+                        <a class="btn" href="https://www.linkedin.com/in/zdanowiczkonrad/" target="_blank" rel="noopener">LINKEDIN&nbsp;↗</a>
+                        <a class="btn" href="apps/">BROWSE APPS&nbsp;→</a>
+                    </div>
+                    <p class="contact-hint">RESPONSE WINDOW: 24–48H · TIMEZONE: EUROPE/WARSAW</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <span>ZDANOWICZ.DEV © 2026</span>
+        <span>NIP 8982163511 · REGON 8362469506</span>
+        <span>0 FRAMEWORKS · 1 EASTER EGG</span>
+        <span class="foot-hint">PRESS <kbd>⌘K</kbd> — AND THE OLD RATE WAS $119/H</span>
+    </footer>
+
+    <nav class="bottombar" aria-label="Sections">
+        <a href="#subject" data-nav>01</a>
+        <a href="#telemetry" data-nav>02</a>
+        <a href="#operations" data-nav>03</a>
+        <a href="#stack" data-nav>04</a>
+        <a href="#contact" data-nav>05</a>
+        <a href="apps/">06</a>
+        <button id="paletteBtnM" aria-label="Open command palette">⌘</button>
+    </nav>
+
+    <div class="palette" id="palette" hidden>
+        <div class="palette-backdrop" data-close></div>
+        <div class="palette-box panel" role="dialog" aria-modal="true" aria-label="Command palette">
+            <div class="panel-inner">
+                <div class="palette-input-row">
+                    <span class="palette-prompt">:</span>
+                    <input id="paletteInput" type="text" autocomplete="off" spellcheck="false" placeholder="type a command — goto, theme, font, sound, legacy…" aria-label="Command">
+                </div>
+                <ul id="paletteList" role="listbox"></ul>
+                <div class="palette-foot"><span>↑↓ NAVIGATE</span><span>↵ EXECUTE</span><span>ESC ABORT</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="map-data.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>

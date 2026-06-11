@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green" data-font="sharp">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>APPS — zdanowicz.dev</title>
+    <meta name="description" content="Works, experiments and deployments by Konrad Zdanowicz.">
+    <meta name="theme-color" content="#050807">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050807'/%3E%3Cpath d='M16 5 L27 16 L16 27 L5 16 Z' fill='none' stroke='%233df58c' stroke-width='2.5'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&family=Martian+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="fx-aurora" aria-hidden="true"></div>
+    <div class="fx-crt" aria-hidden="true"></div>
+    <div class="fx-noise" aria-hidden="true"></div>
+    <div class="fx-dread" aria-hidden="true"></div>
+
+    <header class="statusbar">
+        <a class="brand" href="../">ZDANOWICZ.DEV<span class="caret">▮</span></a>
+        <nav class="topnav" aria-label="Sections">
+            <a href="../">cd ~</a>
+        </nav>
+        <div class="sysmeta">
+            <span class="online"><i class="dot"></i>SYS:ONLINE</span>
+            <span class="clock" id="clock">--:--:--</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="section" style="padding-top: 130px;">
+            <div class="seclabel"><b>06</b>APPS — FIELD DEPLOYMENTS<i class="rule"></i></div>
+
+            <p class="apps-head">konrad@zdanowicz.dev:<b>~/apps</b> $ ls -la<br>
+            <span style="opacity:.6">// INT runs here · EXT redirects to an external deployment</span></p>
+
+            <ul class="apps-list">
+                <!-- ============================================================
+                     ADD APPS HERE.
+                     INT  = lives in this repo: create apps/<slug>/index.html
+                            and point href to "<slug>/".
+                     EXT  = external link: point href anywhere, keep target.
+                     ============================================================ -->
+                <li><a href="sequencer/">
+                    <span class="a-type int">INT</span>
+                    <span class="a-name">SEQ-86</span>
+                    <span class="a-year">2026</span>
+                    <span class="a-desc">synth lab — CLI-controlled 16-step sequencer &amp; synthesizer</span>
+                    <span class="a-arrow">→</span>
+                </a></li>
+                <li><a href="hello-tty/">
+                    <span class="a-type int">INT</span>
+                    <span class="a-name">hello-tty</span>
+                    <span class="a-year">2026</span>
+                    <span class="a-desc">a tiny terminal toy — sample internal deployment</span>
+                    <span class="a-arrow">→</span>
+                </a></li>
+                <li><a href="../">
+                    <span class="a-type int">INT</span>
+                    <span class="a-name">zdanowicz.dev</span>
+                    <span class="a-year">2026</span>
+                    <span class="a-desc">this console. 0 frameworks, 1 easter egg</span>
+                    <span class="a-arrow">→</span>
+                </a></li>
+                <li><a href="https://github.com/zdanowiczkonrad" target="_blank" rel="noopener">
+                    <span class="a-type">EXT</span>
+                    <span class="a-name">github / zdanowiczkonrad</span>
+                    <span class="a-year">∞</span>
+                    <span class="a-desc">public repositories &amp; experiments</span>
+                    <span class="a-arrow">↗</span>
+                </a></li>
+                <li><a href="https://www.ingrid.com" target="_blank" rel="noopener">
+                    <span class="a-type">EXT</span>
+                    <span class="a-name">ingrid</span>
+                    <span class="a-year">2022—</span>
+                    <span class="a-desc">day job — delivery experience platform</span>
+                    <span class="a-arrow">↗</span>
+                </a></li>
+            </ul>
+
+            <p class="transmissions" style="margin-top: 48px;">MANIFEST<i class="rule"></i>5 ENTRIES · MORE IN THE PIPELINE</p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>ZDANOWICZ.DEV © 2026</span>
+        <span><a href="../">← BACK TO CONSOLE</a></span>
+    </footer>
+
+    <script>
+        // minimal runtime for the apps page: clock + stored theme/font
+        (() => {
+            const p = new URLSearchParams(location.search);
+            try {
+                const t = p.get("theme") || localStorage.getItem("theme");
+                if (t) document.documentElement.dataset.theme = t;
+                const f = p.get("font") || localStorage.getItem("font");
+                if (f) document.documentElement.dataset.font = f;
+            } catch {}
+            const clock = document.getElementById("clock");
+            const tick = () => clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false });
+            tick(); setInterval(tick, 1000);
+        })();
+    </script>
+</body>
+</html>

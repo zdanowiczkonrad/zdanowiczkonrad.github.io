@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>hello-tty — apps · zdanowicz.dev</title>
+    <meta name="theme-color" content="#050807">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; box-sizing: border-box; }
+        body {
+            background: #050807; color: #c3d4c9; min-height: 100vh;
+            font: 15px/1.7 "JetBrains Mono", monospace;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tty { width: min(560px, calc(100vw - 32px)); border: 1px solid #2c4537; padding: 22px 26px; }
+        .tty b { color: #3df58c; }
+        .caret { color: #3df58c; animation: blink 1.1s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        a { color: #3df58c; }
+        #out { white-space: pre-wrap; }
+        #in { background: none; border: 0; outline: 0; color: inherit; font: inherit; width: 70%; }
+    </style>
+</head>
+<body>
+    <div class="tty">
+        <div id="out"><b>hello-tty v0.1</b> — sample internal app
+type something and press enter. `exit` goes home.
+</div>
+        <b>$</b> <input id="in" autofocus autocomplete="off"><span class="caret">▮</span>
+    </div>
+    <script>
+        const out = document.getElementById("out"), inp = document.getElementById("in");
+        inp.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter") return;
+            const v = inp.value.trim(); inp.value = "";
+            if (v === "exit") { location.href = "../"; return; }
+            out.textContent += "$ " + v + "\n" + (v ? `hello, "${v}" yourself.` : "") + "\n";
+        });
+    </script>
+</body>
+</html>
