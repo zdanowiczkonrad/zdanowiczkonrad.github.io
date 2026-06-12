@@ -1262,6 +1262,7 @@ void main(){
         if (!canvas || reduced) return { sync() {} };
         const c2 = canvas.getContext("2d");
         let raf = null, W = 0, H = 0, parts = [], blobs = [], last = 0;
+        let spores = [], mx = -1, my = -1;
 
         const seed = () => {
             parts = Array.from({ length: 70 }, () => ({
@@ -1304,12 +1305,51 @@ void main(){
                 c2.fillStyle = `rgba(${rCh},${gb},${Math.round(gb * 1.15)},${(p.a * tw).toFixed(3)})`;
                 c2.fillRect(p.x, p.y, p.s, p.s);
             }
+            // upside-down spores: stirred up by the cursor, drifting off with a red glow
+            c2.globalCompositeOperation = "lighter";
+            for (let i = spores.length - 1; i >= 0; i--) {
+                const s = spores[i];
+                s.life -= 0.008;
+                if (s.life <= 0) { spores.splice(i, 1); continue; }
+                s.vx *= 0.985; s.vy *= 0.985;             // stirred motion settles...
+                s.x += s.vx + Math.sin(now * 0.0009 + s.ph) * 0.25;
+                s.y += s.vy + 0.10;                        // ...into a lazy float-down
+                const tw2 = 0.55 + 0.45 * Math.sin(now * 0.004 + s.ph * 5);
+                const a = s.life * s.a * tw2;
+                const g2 = c2.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 5);
+                g2.addColorStop(0, `rgba(255,72,68,${(a).toFixed(3)})`);
+                g2.addColorStop(0.35, `rgba(255,46,54,${(a * 0.32).toFixed(3)})`);
+                g2.addColorStop(1, "rgba(255,30,40,0)");
+                c2.fillStyle = g2;
+                c2.fillRect(s.x - s.r * 5, s.y - s.r * 5, s.r * 10, s.r * 10);
+            }
+            c2.globalCompositeOperation = "source-over";
         };
+
+        addEventListener("pointermove", (e) => {
+            if (!raf) return;
+            const dx = mx < 0 ? 0 : e.clientX - mx, dy = my < 0 ? 0 : e.clientY - my;
+            mx = e.clientX; my = e.clientY;
+            const speed = Math.min(28, Math.hypot(dx, dy));
+            if (speed < 1.5 || spores.length > 110) return;
+            const n = 1 + ((speed / 9) | 0);
+            for (let i = 0; i < n; i++) {
+                spores.push({
+                    x: mx + (Math.random() - 0.5) * 26, y: my + (Math.random() - 0.5) * 26,
+                    vx: dx * 0.03 + (Math.random() - 0.5) * 0.5,
+                    vy: dy * 0.03 + (Math.random() - 0.5) * 0.5 - 0.2,
+                    r: 0.8 + Math.random() * 1.4,
+                    a: 0.10 + Math.random() * 0.16 + dread * 0.10,
+                    life: 0.7 + Math.random() * 0.3,
+                    ph: Math.random() * Math.PI * 2,
+                });
+            }
+        }, { passive: true });
 
         const sync = () => {
             const want = root.dataset.theme === "violet";
             if (want && !raf) { size(); raf = requestAnimationFrame(frame); }
-            else if (!want && raf) { cancelAnimationFrame(raf); raf = null; c2.clearRect(0, 0, W, H); }
+            else if (!want && raf) { cancelAnimationFrame(raf); raf = null; spores = []; mx = my = -1; c2.clearRect(0, 0, W, H); }
         };
         addEventListener("resize", () => { if (raf) size(); });
         sync();
