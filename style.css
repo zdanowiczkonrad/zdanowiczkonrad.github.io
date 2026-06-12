@@ -62,6 +62,17 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
     opacity: var(--map-fade, 1);    /* neural.js crossfades map -> network on scroll */
 }
 
+/* ---- cyan: deep field — the map gives way to space ----------------------- */
+
+#cosmos {
+    display: none; position: fixed; inset: 0; z-index: -3; pointer-events: none;
+    width: 100vw; height: 100vh;
+}
+[data-theme="cyan"] #cosmos { display: block; }
+[data-theme="cyan"] #worldMap,
+[data-theme="cyan"] .neural-bg,
+[data-theme="cyan"] .neural-hud { display: none; }
+
 /* ---- neural background: the visitor model, drawn live ------------------ */
 
 .neural-bg {

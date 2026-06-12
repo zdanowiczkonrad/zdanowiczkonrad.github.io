@@ -42,6 +42,7 @@
         Sound.retune();
         CrtGL.sync();
         Dirt.sync();
+        Cosmos.sync();
         if (t !== "amber" && window.CrtKnobs) window.CrtKnobs.hide();
     };
     const setFont = (f) => {
@@ -712,7 +713,8 @@
         };
 
         const loop = (now) => {
-            if (!document.hidden && now - lastFrame > 33) { lastFrame = now; render(now); }
+            /* cyan hides the map entirely (deep field instead) — skip the work */
+            if (!document.hidden && root.dataset.theme !== "cyan" && now - lastFrame > 33) { lastFrame = now; render(now); }
             requestAnimationFrame(loop);
         };
 
@@ -905,7 +907,7 @@ void main(){
         });
 
         const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud", "chatwin", "ghost-cursor", "crt-knobs"];
-        const skipEl = (el) => el.id === "crtGL" || el.id === "worldMap" || el.id === "dirt" ||
+        const skipEl = (el) => el.id === "crtGL" || el.id === "worldMap" || el.id === "dirt" || el.id === "cosmos" ||
             SKIP.some((c) => el.classList && el.classList.contains(c));
 
         const shoot = async () => {
@@ -1350,6 +1352,230 @@ void main(){
             const want = root.dataset.theme === "violet";
             if (want && !raf) { size(); raf = requestAnimationFrame(frame); }
             else if (!want && raf) { cancelAnimationFrame(raf); raf = null; spores = []; mx = my = -1; c2.clearRect(0, 0, W, H); }
+        };
+        addEventListener("resize", () => { if (raf) size(); });
+        sync();
+        return { sync };
+    })();
+
+    /* ---- cyan: deep field — parallax stars & the three-body problem -------------------------------
+            Three suns dance a true gravitational n-body simulation. Some eras begin in the
+            figure-eight choreography (stable era) and decay into chaos; a lone planet rides
+            the field until it is flung away. The map and the network are very far below. */
+
+    const Cosmos = (() => {
+        const canvas = $("#cosmos");
+        if (!canvas || reduced) return { sync() {} };
+        const c2 = canvas.getContext("2d");
+        let raf = null, W = 0, H = 0, last = 0;
+        let stars = [], galaxies = [], meteors = [], nextMeteor = 0;
+        let mpx = 0.5, mpy = 0.5;                 /* mouse parallax 0..1 */
+
+        /* three-body state, dimensionless sim units (G = 1) */
+        const SOFT2 = 0.0025;                     /* softening², keeps close passes finite */
+        let B = [], trails = [[], [], []], planet = null, ptrail = [];
+        let era = 0, label = "STABLE", simT = 0, flash = 0;
+        const SUNS = ["#cfeeff", "#4ec9ff", "#ffd9a0"];   /* two cold, one warm */
+
+        const seed = () => {
+            era++;
+            simT = 0; flash = 1;
+            trails = [[], [], []]; ptrail = [];
+            const stable = Math.random() < 0.45;
+            label = stable ? "STABLE" : "CHAOTIC";
+            if (stable) {
+                /* Chenciner–Montgomery figure-eight, nudged so chaos eventually wins */
+                const n = () => (Math.random() - 0.5) * 0.012;
+                B = [
+                    { x: 0.97000436 + n(), y: -0.24308753 + n(), vx: 0.46620368, vy: 0.43236573, m: 1 },
+                    { x: -0.97000436 + n(), y: 0.24308753 + n(), vx: 0.46620368, vy: 0.43236573, m: 1 },
+                    { x: 0 + n(), y: 0 + n(), vx: -0.93240737, vy: -0.86473146, m: 1 },
+                ];
+            } else {
+                B = Array.from({ length: 3 }, (_, i) => {
+                    const a = i * 2.094 + Math.random() * 0.9, r = 0.7 + Math.random() * 0.7;
+                    return { x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0, m: 0.75 + Math.random() * 0.5 };
+                });
+                B.forEach((b) => { const s = 0.4 + Math.random() * 0.3; b.vx = -b.y * s; b.vy = b.x * s; });
+                let px = 0, py = 0, M = 0;
+                B.forEach((b) => { px += b.vx * b.m; py += b.vy * b.m; M += b.m; });
+                B.forEach((b) => { b.vx -= px / M; b.vy -= py / M; });   /* pin the barycenter */
+            }
+            const pa = Math.random() * Math.PI * 2;
+            planet = { x: Math.cos(pa) * 2.3, y: Math.sin(pa) * 2.3, vx: -Math.sin(pa) * 1.05, vy: Math.cos(pa) * 1.05 };
+        };
+
+        const accel = (x, y, out) => {
+            out[0] = 0; out[1] = 0;
+            for (const b of B) {
+                const dx = b.x - x, dy = b.y - y;
+                const d2 = dx * dx + dy * dy + SOFT2;
+                const f = b.m / (d2 * Math.sqrt(d2));
+                out[0] += dx * f; out[1] += dy * f;
+            }
+        };
+
+        const A = [0, 0];
+        const step = (dt) => {
+            /* leapfrog (kick-drift-kick): symplectic, keeps orbits honest for cheap */
+            for (const b of B) {
+                A[0] = 0; A[1] = 0;
+                for (const o of B) {
+                    if (o === b) continue;
+                    const dx = o.x - b.x, dy = o.y - b.y;
+                    const d2 = dx * dx + dy * dy + SOFT2;
+                    const f = o.m / (d2 * Math.sqrt(d2));
+                    A[0] += dx * f; A[1] += dy * f;
+                }
+                b.vx += A[0] * dt / 2; b.vy += A[1] * dt / 2;
+            }
+            for (const b of B) { b.x += b.vx * dt; b.y += b.vy * dt; }
+            for (const b of B) {
+                A[0] = 0; A[1] = 0;
+                for (const o of B) {
+                    if (o === b) continue;
+                    const dx = o.x - b.x, dy = o.y - b.y;
+                    const d2 = dx * dx + dy * dy + SOFT2;
+                    const f = o.m / (d2 * Math.sqrt(d2));
+                    A[0] += dx * f; A[1] += dy * f;
+                }
+                b.vx += A[0] * dt / 2; b.vy += A[1] * dt / 2;
+            }
+            accel(planet.x, planet.y, A);
+            planet.vx += A[0] * dt; planet.vy += A[1] * dt;
+            planet.x += planet.vx * dt; planet.y += planet.vy * dt;
+            simT += dt;
+        };
+
+        const seedSky = () => {
+            const layer = (n, d) => Array.from({ length: n }, () => ({
+                x: Math.random() * W, y: Math.random() * H, d,
+                s: d * 1.6 + Math.random() * 0.8, a: 0.12 + d * 0.5 * Math.random(),
+                ph: Math.random() * Math.PI * 2, tw: 0.5 + Math.random() * 2.5,
+            }));
+            stars = [...layer(150, 0.25), ...layer(70, 0.55), ...layer(30, 1)];
+            galaxies = Array.from({ length: 4 }, () => ({
+                x: Math.random() * W, y: Math.random() * H,
+                rx: 14 + Math.random() * 26, ry: 4 + Math.random() * 7,
+                rot: Math.random() * Math.PI, a: 0.04 + Math.random() * 0.05,
+            }));
+        };
+
+        const size = () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight; seedSky(); };
+
+        const frame = (now) => {
+            raf = requestAnimationFrame(frame);
+            if (document.hidden || now - last < 33) return;
+            last = now;
+            for (let i = 0; i < 3; i++) step(0.008);
+
+            /* era collapse: a sun (or everything) is flung from the system */
+            if (B.some((b) => Math.hypot(b.x, b.y) > 5.5)) { seed(); Sound.blip(196, .25, .03); }
+            /* a nudged figure-eight has finally lost the choreography */
+            if (label === "STABLE" && B.some((b, i) => B.some((o, j) => j > i && Math.hypot(b.x - o.x, b.y - o.y) > 3.2))) label = "CHAOTIC";
+            if (Math.hypot(planet.x, planet.y) > 6) {
+                const pa = Math.random() * Math.PI * 2;
+                planet = { x: Math.cos(pa) * 2.4, y: Math.sin(pa) * 2.4, vx: -Math.sin(pa), vy: Math.cos(pa) };
+                ptrail = [];
+            }
+
+            c2.clearRect(0, 0, W, H);
+            const par = (d) => [(mpx - 0.5) * d * 26, (mpy - 0.5) * d * 16 - (scrollY * d * 0.06) % H];
+
+            for (const g of galaxies) {
+                c2.save();
+                c2.translate(g.x, g.y); c2.rotate(g.rot); c2.scale(1, g.ry / g.rx);
+                const gr = c2.createRadialGradient(0, 0, 0, 0, 0, g.rx);
+                gr.addColorStop(0, `rgba(160,220,255,${g.a})`);
+                gr.addColorStop(1, "rgba(160,220,255,0)");
+                c2.fillStyle = gr; c2.fillRect(-g.rx, -g.rx, g.rx * 2, g.rx * 2);
+                c2.restore();
+            }
+
+            for (const s of stars) {
+                const [ox, oy] = par(s.d);
+                const x = (s.x + ox % W + W) % W, y = (s.y + oy % H + H) % H;
+                const a = s.a * (0.6 + 0.4 * Math.sin(now * 0.001 * s.tw + s.ph));
+                c2.fillStyle = `rgba(190,230,255,${a.toFixed(3)})`;
+                c2.fillRect(x, y, s.s, s.s);
+            }
+
+            if (now > nextMeteor) {
+                nextMeteor = now + 5000 + Math.random() * 9000;
+                const fromLeft = Math.random() < 0.5;
+                meteors.push({
+                    x: fromLeft ? -20 : W + 20, y: Math.random() * H * 0.5,
+                    vx: (fromLeft ? 1 : -1) * (7 + Math.random() * 6), vy: 2.5 + Math.random() * 2.5, life: 1,
+                });
+            }
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                const m = meteors[i];
+                m.x += m.vx; m.y += m.vy; m.life -= 0.016;
+                if (m.life <= 0) { meteors.splice(i, 1); continue; }
+                const g2 = c2.createLinearGradient(m.x, m.y, m.x - m.vx * 9, m.y - m.vy * 9);
+                g2.addColorStop(0, `rgba(220,245,255,${(m.life * 0.8).toFixed(3)})`);
+                g2.addColorStop(1, "rgba(220,245,255,0)");
+                c2.strokeStyle = g2; c2.lineWidth = 1.2;
+                c2.beginPath(); c2.moveTo(m.x, m.y); c2.lineTo(m.x - m.vx * 9, m.y - m.vy * 9); c2.stroke();
+            }
+
+            /* the dance, centered above the fold */
+            const S = Math.min(W, H) * 0.16;
+            const cx = W * 0.5 + (mpx - 0.5) * 10, cy = H * 0.42 + (mpy - 0.5) * 8;
+            const sx = (p) => cx + p.x * S, sy = (p) => cy + p.y * S;
+
+            B.forEach((b, i) => {
+                const tr = trails[i];
+                tr.push([sx(b), sy(b)]);
+                if (tr.length > 110) tr.shift();
+                for (let k = 1; k < tr.length; k++) {
+                    c2.strokeStyle = `rgba(78,201,255,${(k / tr.length * 0.22).toFixed(3)})`;
+                    c2.lineWidth = 0.8;
+                    c2.beginPath(); c2.moveTo(tr[k - 1][0], tr[k - 1][1]); c2.lineTo(tr[k][0], tr[k][1]); c2.stroke();
+                }
+            });
+            c2.globalCompositeOperation = "lighter";
+            B.forEach((b, i) => {
+                const x = sx(b), y = sy(b), r = 3 + b.m * 2.5;
+                const g3 = c2.createRadialGradient(x, y, 0, x, y, r * 10);
+                g3.addColorStop(0, SUNS[i]);
+                g3.addColorStop(0.10, SUNS[i] + "b8");
+                g3.addColorStop(0.35, SUNS[i] + "40");
+                g3.addColorStop(1, SUNS[i] + "00");
+                c2.fillStyle = g3;
+                c2.fillRect(x - r * 10, y - r * 10, r * 20, r * 20);
+            });
+            c2.globalCompositeOperation = "source-over";
+
+            ptrail.push([sx(planet), sy(planet)]);
+            if (ptrail.length > 70) ptrail.shift();
+            for (let k = 1; k < ptrail.length; k++) {
+                c2.strokeStyle = `rgba(180,235,255,${(k / ptrail.length * 0.14).toFixed(3)})`;
+                c2.lineWidth = 0.6;
+                c2.beginPath(); c2.moveTo(ptrail[k - 1][0], ptrail[k - 1][1]); c2.lineTo(ptrail[k][0], ptrail[k][1]); c2.stroke();
+            }
+            c2.fillStyle = "rgba(220,245,255,.9)";
+            c2.fillRect(sx(planet) - 1.2, sy(planet) - 1.2, 2.4, 2.4);
+
+            /* era HUD + collapse flash */
+            if (flash > 0.01) {
+                c2.fillStyle = `rgba(160,225,255,${(flash * 0.12).toFixed(3)})`;
+                c2.fillRect(0, 0, W, H);
+                flash *= 0.86;
+            }
+            c2.font = "10px 'JetBrains Mono', monospace";
+            c2.fillStyle = "rgba(78,201,255,.55)";
+            c2.fillText(`THREE-BODY // ERA ${era} · ${label} · T+${simT.toFixed(1)}`, 16, H - 16);
+        };
+
+        if (finePointer) addEventListener("pointermove", (e) => {
+            if (raf) { mpx = e.clientX / innerWidth; mpy = e.clientY / innerHeight; }
+        }, { passive: true });
+
+        const sync = () => {
+            const want = root.dataset.theme === "cyan";
+            if (want && !raf) { size(); if (!B.length) seed(); raf = requestAnimationFrame(frame); }
+            else if (!want && raf) { cancelAnimationFrame(raf); raf = null; c2.clearRect(0, 0, W, H); }
         };
         addEventListener("resize", () => { if (raf) size(); });
         sync();
