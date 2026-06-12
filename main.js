@@ -1489,6 +1489,166 @@ void main(){
     }, { passive: true });
     applyDread();
 
+    /* violet whispers: fragments of stackoverflow answer 1732454 surface through
+       the page — you cannot parse [X]HTML with regex, and the pony comes */
+    if (!reduced) {
+        const PHRASES = [
+            "you can't parse [X]HTML with regex",
+            "HTML is not a regular language",
+            "the <center> cannot hold",
+            "it is too late",
+            "regex-infection wil​l devour your HT​ML parser",
+            "every time you attempt to parse HTML with regular expressions, the unholy child weeps the blood of virgins",
+            "ZA̡͊͠LGΌ ISͮ̂ TO͇̹̺ͅƝ̴ȳ̳ TH̘Ë͖́̉ ͠P̯͍̭O̚​N̐Y̡",
+            "he comes",
+            "HE COMES",
+            "T̄ĤÉ P̄ÓN̄Ý H̄É C̄ÓM̄ÉS̄",
+            "do not parse",
+            "have you tried using an XML parser instead?",
+        ];
+        const MARKS = [768, 769, 770, 771, 772, 774, 776, 780, 785, 803, 805, 806, 814, 816, 817, 824, 829, 830, 833, 845];
+        const zalgo = (s, k) => [...s].map((ch) =>
+            /\s/.test(ch) ? ch : ch + Array.from(
+                { length: (Math.random() * 4 * k) | 0 },
+                () => String.fromCharCode(MARKS[(Math.random() * MARKS.length) | 0])
+            ).join("")
+        ).join("");
+
+        const whisperLoop = () => {
+            setTimeout(() => {
+                if (root.dataset.theme === "violet" && !document.hidden) {
+                    const w = document.createElement("div");
+                    w.className = "whisper";
+                    /* the deeper the dread, the heavier the corruption */
+                    w.textContent = zalgo(PHRASES[(Math.random() * PHRASES.length) | 0], 0.2 + dread * 1.3);
+                    w.style.left = 6 + Math.random() * 72 + "%";
+                    w.style.top = 12 + Math.random() * 70 + "%";
+                    w.style.setProperty("--wrot", (Math.random() * 8 - 4).toFixed(1) + "deg");
+                    document.body.appendChild(w);
+                    if (Math.random() < 0.35) buzz(6);
+                    setTimeout(() => w.remove(), 2400);
+                }
+                whisperLoop();
+            }, 4000 + Math.random() * 9000);
+        };
+        whisperLoop();
+
+        /* unicode rot: live page text briefly corrupts — glyphs swap for broken
+           unicode, diacritics crawl in — then heals as if nothing happened */
+        const ROT = "▓▒░ΞЖѪѮΨφʬØ×҈҉";
+        const rotting = new Map();   // el -> original, so a rot can't capture another rot
+        const rotChars = (s, k) => [...s].map((ch) => {
+            if (/\s/.test(ch) || Math.random() > k) return ch;
+            return Math.random() < 0.5
+                ? ROT[(Math.random() * ROT.length) | 0]
+                : ch + String.fromCharCode(MARKS[(Math.random() * MARKS.length) | 0]);
+        }).join("");
+        const rotEl = (el) => {
+            if (rotting.has(el) || activeScrambles.has(el)) return;
+            const orig = el.textContent;
+            rotting.set(el, orig);
+            const k = 0.10 + dread * 0.22;
+            let flickers = 2 + ((Math.random() * 3) | 0);
+            const step = () => {
+                if (root.dataset.theme !== "violet" || flickers-- <= 0) {
+                    el.textContent = orig; rotting.delete(el); return;
+                }
+                el.textContent = rotChars(orig, k);
+                setTimeout(step, 90 + Math.random() * 160);
+            };
+            step();
+        };
+        const rotTargets = () => $$("main h3, main p, main li, .seclabel, .s-label, .name").filter((el) => {
+            if (el.children.length || el.dataset.scramble !== undefined) return false;
+            if (el.textContent.trim().length < 4) return false;
+            const r = el.getBoundingClientRect();
+            return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+        });
+        const rotLoop = () => {
+            setTimeout(() => {
+                if (root.dataset.theme === "violet" && !document.hidden) {
+                    const pool = rotTargets();
+                    const n = 1 + (Math.random() < dread ? ((Math.random() * 2) | 0) + 1 : 0);
+                    for (let i = 0; i < n && pool.length; i++) {
+                        rotEl(pool.splice((Math.random() * pool.length) | 0, 1)[0]);
+                    }
+                }
+                rotLoop();
+            }, 1800 + Math.random() * 4200);
+        };
+        rotLoop();
+
+        /* vines: glitched tendrils grow around a heading (or a single letter),
+           cling for a moment, then wither */
+        const vineGrow = (el) => {
+            let { left, top, width: w, height: h } = el.getBoundingClientRect();
+            if (Math.random() < 0.4) {            /* single-letter infestation */
+                const lw = Math.min(w, h * 0.7);
+                left += Math.random() * Math.max(1, w - lw);
+                w = lw;
+            }
+            const PAD = 18;
+            const NS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(NS, "svg");
+            svg.setAttribute("class", "vines");
+            svg.setAttribute("width", w + PAD * 2);
+            svg.setAttribute("height", h + PAD * 2);
+            svg.style.left = left - PAD + scrollX + "px";   /* absolute: clings to the text while scrolling */
+            svg.style.top = top - PAD + scrollY + "px";
+            document.body.appendChild(svg);                 /* in DOM so path lengths resolve */
+            /* perimeter walk with outward jitter: organic creep hugging the text box */
+            const paths = 2 + ((Math.random() * 2) | 0);
+            for (let p = 0; p < paths; p++) {
+                const peri = [
+                    (q) => [PAD + q * w, PAD - 2],            /* top edge */
+                    (q) => [PAD + q * w, PAD + h + 2],        /* bottom edge */
+                    (q) => [PAD - 2, PAD + q * h],            /* left edge */
+                    (q) => [PAD + w + 2, PAD + q * h],        /* right edge */
+                ][(Math.random() * 4) | 0];
+                const rev = Math.random() < 0.5;
+                const segs = 6 + ((Math.random() * 5) | 0);
+                let d = "";
+                for (let s = 0; s <= segs; s++) {
+                    let q = s / segs; if (rev) q = 1 - q;
+                    const [bx, by] = peri(q);
+                    const jx = bx + (Math.random() - 0.5) * 10;
+                    const jy = by + (Math.random() - 0.5) * 10;
+                    d += s === 0 ? `M${jx.toFixed(1)} ${jy.toFixed(1)}`
+                        : `Q${(bx + (Math.random() - 0.5) * 16).toFixed(1)} ${(by + (Math.random() - 0.5) * 16).toFixed(1)} ${jx.toFixed(1)} ${jy.toFixed(1)}`;
+                    /* thorn: short barb off the stem */
+                    if (s && Math.random() < 0.45) {
+                        d += `m0 0l${((Math.random() - 0.5) * 12).toFixed(1)} ${((Math.random() - 0.5) * 12).toFixed(1)}m0 0`;
+                        d += `M${jx.toFixed(1)} ${jy.toFixed(1)}`;
+                    }
+                }
+                const path = document.createElementNS(NS, "path");
+                path.setAttribute("d", d);
+                svg.appendChild(path);
+                const L = path.getTotalLength();
+                path.style.strokeDasharray = L;
+                path.style.strokeDashoffset = L;
+                path.getBoundingClientRect();            /* flush before transition */
+                path.style.transition = `stroke-dashoffset ${(1.1 + Math.random()).toFixed(2)}s steps(${8 + ((Math.random() * 8) | 0)})`;
+                path.style.strokeDashoffset = "0";
+            }
+            setTimeout(() => svg.classList.add("wither"), 3600);
+            setTimeout(() => svg.remove(), 5200);
+        };
+        const vineLoop = () => {
+            setTimeout(() => {
+                if (root.dataset.theme === "violet" && !document.hidden) {
+                    const pool = $$("main h3, .seclabel, .name, .whisper").filter((el) => {
+                        const r = el.getBoundingClientRect();
+                        return r.top > 60 && r.bottom < innerHeight && r.width > 30;
+                    });
+                    if (pool.length) vineGrow(pool[(Math.random() * pool.length) | 0]);
+                }
+                vineLoop();
+            }, 6000 + Math.random() * 8000);
+        };
+        vineLoop();
+    }
+
     if (!reduced) {
         const mainEl = $("main");
         const tearLoop = () => {
