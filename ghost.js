@@ -22,8 +22,9 @@
     } catch {}
     if (!net) net = new NN.Net([12, 16, 2], { out: "linear", hidden: "tanh", lr: 0.008, seed: 51 });
 
-    let off = false;
-    try { off = localStorage.getItem("ghost.off") === "1"; } catch {}
+    /* hidden by default — `ghost toggle` in the palette opts in (persisted) */
+    let off = true;
+    try { off = localStorage.getItem("ghost.off") !== "0"; } catch {}
 
     /* ---- ghost element ---------------------------------------------------- */
 

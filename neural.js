@@ -275,7 +275,7 @@
                     for (let i = 0; i < nIn; i++) {
                         const [x1, y1] = pos[l][i], [x2, y2] = pos[l + 1][j];
                         const line = el("line", { x1, y1, x2, y2, class: "nn-edge" }, gE);
-                        edges.push({ el: line, l, w: j * nIn + i, x1, y1, x2, y2, baseO: 0.05, baseW: 0.5 });
+                        edges.push({ el: line, l, w: j * nIn + i, x1, y1, x2, y2, baseO: 0.05, baseW: 0.4 });
                     }
                 }
             }
@@ -314,7 +314,7 @@
                 const ed = edges[e];
                 const r = Math.abs(net.W[ed.l][ed.w]) / maxAbs[ed.l];
                 ed.baseO = 0.04 + r * 0.30;
-                ed.baseW = 0.45 + r * 0.95;
+                ed.baseW = 0.35 + r * 0.75;
                 if (!hot.has(e)) {
                     ed.el.setAttribute("stroke-opacity", ed.baseO.toFixed(3));
                     ed.el.setAttribute("stroke-width", ed.baseW.toFixed(2));

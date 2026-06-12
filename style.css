@@ -81,7 +81,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
     opacity: calc(var(--nn-mix, 0) * .68);
     transition: opacity .3s linear;
 }
-.neural-bg .nn-edge { stroke: var(--accent); stroke-dasharray: 2 3; }
+.neural-bg .nn-edge { stroke: var(--accent); }
 .neural-bg .nn-node { fill: var(--accent); }
 .neural-bg .nn-spark { fill: #ff5e10; }
 .neural-bg .nn-pulse { fill: var(--accent); }
