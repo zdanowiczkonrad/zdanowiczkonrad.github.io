@@ -178,6 +178,40 @@
         return `accuracy ${(acc * 100).toFixed(1)}%`;
     });
 
+    /* ---- language modeling: char-level next-token prediction ---------------- */
+
+    test("char-LM memorizes a tiny corpus (acc ≥ 95%)", () => {
+        const corpus = "the quick brown fox jumps over the lazy dog. ".repeat(3) +
+                       "konrad builds engineering teams in wroclaw. ".repeat(3);
+        const CHARS = [...new Set(corpus)].sort().join("");
+        const V = CHARS.length, idx = {};
+        [...CHARS].forEach((c, i) => (idx[c] = i));
+        const CTXL = 8;
+        const net = new Net([CTXL * V, 48, V], { out: "softmax", lr: 0.01, seed: 21 });
+        const x = new Float32Array(CTXL * V), y = new Float32Array(V);
+        const N = corpus.length - CTXL - 1;
+        const r = xorshift(5);
+        for (let s = 0; s < N * 30; s++) {
+            const pos = (r() * N) | 0;
+            x.fill(0);
+            for (let k = 0; k < CTXL; k++) x[k * V + idx[corpus[pos + k]]] = 1;
+            y.fill(0); y[idx[corpus[pos + CTXL]]] = 1;
+            net.train(x, y);
+        }
+        let ok = 0;
+        for (let pos = 0; pos < N; pos++) {
+            x.fill(0);
+            for (let k = 0; k < CTXL; k++) x[k * V + idx[corpus[pos + k]]] = 1;
+            const p = net.forward(x);
+            let b = 0;
+            for (let j = 1; j < V; j++) if (p[j] > p[b]) b = j;
+            if (CHARS[b] === corpus[pos + CTXL]) ok++;
+        }
+        const acc = ok / N;
+        assert(acc >= 0.95, `next-char accuracy ${acc}`);
+        return `next-char acc ${(acc * 100).toFixed(1)}% (${V}-char vocab)`;
+    });
+
     /* ---- engine guarantees ----------------------------------------------------- */
 
     test("determinism (same seed → identical run)", () => {

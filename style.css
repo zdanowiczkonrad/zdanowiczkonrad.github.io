@@ -99,6 +99,64 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 html.nn-off .neural-bg, html.nn-off .neural-hud { display: none; }
 html.crt-on .neural-bg, html.crt-on .neural-hud { visibility: hidden; }
 
+/* ---- KZ·MIND chat ------------------------------------------------------- */
+
+.chatwin {
+    position: fixed; right: 16px; bottom: 14px; z-index: 60;
+    display: flex; flex-direction: column;
+    width: min(400px, calc(100vw - 28px)); height: min(480px, calc(100vh - 90px));
+    border: 1px solid var(--line-bright);
+    background: color-mix(in srgb, var(--bg) 93%, transparent);
+    backdrop-filter: blur(10px);
+}
+html.chat-open .neural-hud { display: none; }
+.chat-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    font-size: 10px; letter-spacing: .16em; color: var(--text); font-weight: 600;
+}
+.chat-stat { margin-left: auto; color: var(--accent); font-weight: 400; font-size: 9px; }
+.chat-x {
+    background: transparent; border: 0; color: var(--dim); cursor: pointer;
+    font-family: var(--font-mono); font-size: 12px; padding: 2px 4px;
+}
+.chat-x:hover { color: var(--accent); }
+.chat-log {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    font-size: 12.5px; line-height: 1.55;
+}
+.chat-msg.user { color: var(--accent); }
+.chat-msg.bot { color: var(--text); }
+.chat-msg.dream { color: var(--dim); font-style: italic; font-size: 11.5px; }
+.chat-form {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-top: 1px solid var(--line);
+}
+.chat-prompt { color: var(--accent); font-weight: 700; }
+#chatIn {
+    flex: 1; background: transparent; border: 0; outline: 0;
+    color: var(--text); font-family: var(--font-mono); letter-spacing: .02em;
+    font-size: 16px; /* <16px triggers iOS focus zoom */
+}
+#chatIn::placeholder { color: var(--dim); }
+html.crt-on .chatwin { visibility: hidden; }
+
+/* ---- ghost cursor -------------------------------------------------------- */
+
+.ghost-cursor {
+    position: fixed; left: 0; top: 0; z-index: 46; pointer-events: none;
+    color: color-mix(in srgb, var(--accent) 65%, transparent);
+    transition: opacity .4s ease;
+    filter: drop-shadow(0 0 4px var(--accent-dim));
+}
+.ghost-cursor .ghost-tag {
+    position: absolute; left: 14px; top: 14px;
+    font-size: 8px; letter-spacing: .14em; white-space: nowrap;
+    color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+html.crt-on .ghost-cursor { visibility: hidden; }
+
 .grid-bg {
     position: fixed; inset: 0; z-index: -2; pointer-events: none;
     background-image:
@@ -683,7 +741,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
 @media (max-width: 480px) {
     .signal-eq { font-size: 10px; }
-    #sndBtn { display: none; } /* sound stays reachable via ⌘K "sound toggle" */
+    #sndBtn, #chatBtn { display: none; } /* both stay reachable via ⌘K */
+    .chatwin {
+        right: 8px; left: 8px; width: auto;
+        bottom: calc(64px + env(safe-area-inset-bottom));
+        height: min(420px, 58vh);
+    }
 }
 
 /* ---- reduced motion --------------------------------------------------------------------- */

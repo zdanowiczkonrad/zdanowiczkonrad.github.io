@@ -867,7 +867,7 @@ void main(){
             document.head.appendChild(s);
         });
 
-        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud"];
+        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud", "chatwin", "ghost-cursor"];
         const skipEl = (el) => el.id === "crtGL" || el.id === "worldMap" || el.id === "dirt" ||
             SKIP.some((c) => el.classList && el.classList.contains(c));
 
@@ -1383,6 +1383,8 @@ void main(){
         { k: "sound toggle", d: "generative sequencer on/off", run: () => Sound.toggle() },
         { k: "neural lab", d: "NN-31 — engine, tests, live training", run: () => (location.href = "apps/neural/") },
         { k: "neural toggle", d: "show/hide the visitor model", run: () => window.Mind && window.Mind.toggle() },
+        { k: "chat", d: "KZ·MIND — on-device language model", run: () => window.Chat && window.Chat.open() },
+        { k: "ghost toggle", d: "the cursor that predicts your cursor", run: () => window.Ghost && window.Ghost.toggle() },
         { k: "legacy", d: "flash the 2019 site palette", run: legacy },
         { k: "whoami", d: "you know who you are", run: goto("#subject") },
     ];
