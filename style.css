@@ -59,7 +59,45 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 #worldMap {
     position: fixed; inset: 0; z-index: -3; pointer-events: none;
     width: 100vw; height: 100vh;
+    opacity: var(--map-fade, 1);    /* neural.js crossfades map -> network on scroll */
 }
+
+/* ---- neural background: the visitor model, drawn live ------------------ */
+
+.neural-bg {
+    position: fixed; inset: 0; z-index: -3; pointer-events: none;
+    width: 100vw; height: 100vh;
+    opacity: calc(var(--nn-mix, 0) * .68);
+    transition: opacity .3s linear;
+}
+.neural-bg .nn-edge { stroke: var(--accent); }
+.neural-bg .nn-node { fill: var(--accent); }
+.neural-bg .nn-spark { fill: #ff5e10; }
+.neural-bg .nn-pulse { fill: var(--accent); }
+.neural-bg .nn-lab {
+    fill: var(--dim); font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em;
+    opacity: .7;
+}
+.neural-bg .nn-out { font-size: 10px; }
+.neural-bg .nn-out.on { fill: var(--accent); opacity: 1; }
+
+.neural-hud {
+    position: fixed; right: 16px; bottom: 14px; z-index: 40;
+    display: flex; flex-direction: column; gap: 4px;
+    min-width: 215px; padding: 9px 12px;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 84%, transparent);
+    backdrop-filter: blur(6px);
+    font-size: 10px; letter-spacing: .14em; color: var(--dim);
+}
+.neural-hud:hover { text-decoration: none; border-color: var(--line-bright); background: color-mix(in srgb, var(--bg) 92%, transparent); }
+.neural-hud .nh-title { display: flex; justify-content: space-between; align-items: center; color: var(--text); font-weight: 600; }
+.neural-hud .nh-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; animation: pulse 1.4s ease infinite; }
+.neural-hud .nh-row { display: flex; justify-content: space-between; gap: 16px; }
+.neural-hud .nh-row b { color: var(--accent); font-weight: 600; }
+.neural-hud .nh-meta { font-size: 8.5px; letter-spacing: .1em; opacity: .75; }
+html.nn-off .neural-bg, html.nn-off .neural-hud { display: none; }
+html.crt-on .neural-bg, html.crt-on .neural-hud { visibility: hidden; }
 
 .grid-bg {
     position: fixed; inset: 0; z-index: -2; pointer-events: none;
@@ -169,7 +207,6 @@ html.crt-cap .name, html.crt-cap h3, html.crt-cap .prompt, html.crt-cap .seclabe
 }
 html.crt-cap .btn:hover { border-color: #8f6f24; }
 html.crt-cap .readouts { background: rgba(13, 10, 5, .72); }
-html.crt-cap .avatar-frame::before { background: linear-gradient(rgba(255, 176, 0, .14), transparent 60%), repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, .22) 3px 4px); }
 html.crt-cap .face-readout { background: rgba(6, 5, 3, .72); }
 html.crt-cap .lit::after { background: none !important; }
 html.crt-cap .career::before { background: linear-gradient(90deg, rgba(255, 176, 0, .14), rgba(255, 176, 0, .07) 55%, transparent); }
@@ -269,6 +306,14 @@ main.tear { animation: tear .16s steps(2) 1; }
 .topnav a.active { color: var(--accent); }
 
 .sysmeta { margin-left: auto; display: flex; align-items: center; gap: 16px; color: var(--dim); white-space: nowrap; }
+
+/* odometer clock: each digit is a masked column of 0-9 that slides vertically */
+.clock { display: inline-flex; align-items: center; }
+.clock .cl-d { display: block; height: 1.5em; overflow: hidden; }
+.clock .cl-col { display: block; transition: transform .42s cubic-bezier(.3, .8, .25, 1); will-change: transform; }
+.clock .cl-col span { display: block; height: 1.5em; line-height: 1.5em; text-align: center; }
+.clock .cl-sep { line-height: 1.5em; padding: 0 1px; }
+.clock .cl-tz { margin-left: 7px; color: var(--dim); font-size: 10px; letter-spacing: .12em; }
 .online { color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
 .dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s ease infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
@@ -327,7 +372,6 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     opacity: 0; transition: opacity .25s ease;
 }
 .lit:hover::after { opacity: 1; }
-.btn.lit::after { padding: 1px; }
 
 /* ---- hero ------------------------------------------------------------ */
 
@@ -356,7 +400,6 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     display: inline-block; padding: 11px 22px;
     font-size: 12px; letter-spacing: .14em; font-weight: 600;
     color: var(--text); border: 1px solid var(--line-bright);
-    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
     transition: background .15s, color .15s, border-color .15s;
 }
 .btn:hover { text-decoration: none; border-color: color-mix(in srgb, var(--accent) 50%, var(--line-bright)); color: var(--accent); background: var(--accent-ghost); }
@@ -374,28 +417,22 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     filter: grayscale(1) contrast(1.12) brightness(.9);
     transition: filter .4s ease;
 }
-.avatar-frame::before {
-    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
-    background: linear-gradient(var(--accent-dim), transparent 60%),
-        repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.22) 3px 4px);
+/* bio-scan layers: 1 processed (sharpened) image · 2 edge contours (hover) · 5 readout */
+.avatar-proc {
+    position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
+    pointer-events: none;
 }
-.avatar-frame:hover img { filter: grayscale(1) contrast(1.18) brightness(1.02) blur(1.4px); }
-.facemap .fm-scan { stroke: var(--accent); stroke-width: .5; opacity: .65; }
-.facemap {
-    position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%;
-    opacity: 0; transition: opacity .35s ease; pointer-events: none;
+.avatar-edges {
+    position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%;
+    pointer-events: none; opacity: 0; transition: opacity .35s ease;
 }
-.avatar-frame:hover .facemap { opacity: 1; }
-.facemap line, .facemap path { stroke: var(--accent); stroke-width: .35; fill: none; opacity: .8; }
-.facemap circle { fill: var(--accent); }
-.facemap .fm-box { stroke: var(--accent); stroke-width: .5; fill: none; stroke-dasharray: 6 4; opacity: .9; }
+.avatar-frame:hover .avatar-edges { opacity: .9; }
 .face-readout {
-    position: absolute; left: 6px; bottom: 6px; z-index: 4;
+    position: absolute; left: 6px; bottom: 6px; z-index: 5;
     font-size: 9px; letter-spacing: .18em; color: var(--accent);
     background: color-mix(in srgb, var(--bg) 72%, transparent);
-    padding: 2px 6px; opacity: 0; transition: opacity .35s ease; pointer-events: none;
+    padding: 2px 6px; pointer-events: none;
 }
-.avatar-frame:hover .face-readout { opacity: 1; }
 .avatar figcaption {
     padding: 9px 2px 1px; font-size: 10px; letter-spacing: .26em; color: var(--dim);
     display: flex; justify-content: space-between;
@@ -409,7 +446,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 }
 .readouts li + li { border-top: 1px solid var(--line); }
 .readouts span { color: var(--dim); }
-.readouts b { font-weight: 600; }
+.readouts b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .readouts .ok { color: var(--accent); }
 
 /* ---- telemetry -------------------------------------------------------- */
@@ -431,6 +468,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     fill: var(--dim); font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em;
     text-anchor: middle;
 }
+.signal-eq {
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px;
+    padding: 10px 14px 4px; border-top: 1px solid var(--line);
+    font-size: 11px; letter-spacing: .08em; color: var(--dim);
+}
+.signal-eq .eq { color: var(--accent); }
 
 .career { list-style: none; position: relative; }
 .career::before {
@@ -533,7 +576,8 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 .palette-prompt { color: var(--accent); font-weight: 700; }
 #paletteInput {
     flex: 1; background: transparent; border: 0; outline: 0;
-    color: var(--text); font-family: var(--font-mono); font-size: 15px; letter-spacing: .03em;
+    color: var(--text); font-family: var(--font-mono); letter-spacing: .03em;
+    font-size: 16px; /* <16px makes iOS Safari auto-zoom on focus, which scrolls the page */
 }
 #paletteInput::placeholder { color: var(--dim); }
 #paletteList { list-style: none; max-height: 320px; overflow-y: auto; }
@@ -581,16 +625,19 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
 @media (max-width: 900px) {
     .topnav, .loc, .online { display: none; }
-    .statusbar { gap: 16px; height: 48px; }
+    .statusbar { gap: 12px; height: 48px; padding: 0 14px; }
+    .sysmeta { gap: 10px; }
     html { scroll-padding-top: 60px; }
 
     .section { padding: 76px 0 20px; }
     .section.hero { padding-top: 96px; min-height: unset; }
 
     .hero-grid { grid-template-columns: 1fr; gap: 36px; }
-    .hero-side { flex-direction: row; align-items: flex-start; }
-    .avatar { flex: 0 0 150px; max-width: 150px; }
-    .readouts { flex: 1; }
+    .hero-side { flex-direction: column; align-items: stretch; gap: 18px; }
+    .avatar { width: min(58vw, 240px); max-width: 240px; }
+    .readouts { width: 100%; }
+    .readouts li { padding: 10px 14px; gap: 14px; }
+    .readouts span { flex-shrink: 0; }
 
     .career li { grid-template-columns: 1fr; gap: 4px; padding: 20px 2px; }
     .career .c-role, .career .c-desc { grid-column: 1; }
@@ -607,7 +654,14 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     .apps-list a { grid-template-columns: 52px 1fr 24px; }
     .apps-list .a-year, .apps-list .a-desc { display: none; }
 
-    #worldMap { opacity: .45; }
+    #worldMap { opacity: calc(var(--map-fade, 1) * .45); }
+    .neural-bg .nn-lab { display: none; }
+    .neural-bg .nn-out { display: block; font-size: 9px; }
+    .neural-hud {
+        right: 10px; bottom: calc(64px + env(safe-area-inset-bottom));
+        min-width: 0; padding: 7px 10px; gap: 3px; font-size: 9px;
+    }
+    .neural-hud .nh-meta { display: none; }
 
     .bottombar {
         position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
@@ -628,8 +682,8 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 }
 
 @media (max-width: 480px) {
-    .hero-side { flex-direction: column; }
-    .avatar { flex: unset; width: 64%; max-width: 220px; }
+    .signal-eq { font-size: 10px; }
+    #sndBtn { display: none; } /* sound stays reachable via ⌘K "sound toggle" */
 }
 
 /* ---- reduced motion --------------------------------------------------------------------- */

@@ -37,6 +37,8 @@
         try { localStorage.setItem("theme", t); } catch {}
         applyDread();
         MapBg.recolor();
+        Face.recolor();
+        if (window.Mind) window.Mind.recolor();
         Sound.retune();
         CrtGL.sync();
         Dirt.sync();
@@ -95,9 +97,56 @@
 
     /* ---- clock ----------------------------------------------------------- */
 
+    /* odometer: six digit columns slide vertically inside masked cells */
     const clock = $("#clock");
+    let clockCols = [];
+    if (clock) {
+        const tz = (() => {
+            try {
+                const part = new Intl.DateTimeFormat("en-GB", { timeZoneName: "short" })
+                    .formatToParts(new Date()).find((p) => p.type === "timeZoneName");
+                if (part) return part.value;
+            } catch {}
+            const off = -new Date().getTimezoneOffset() / 60;
+            return "UTC" + (off >= 0 ? "+" : "") + off;
+        })();
+        clock.textContent = "";
+        "00:00:00".split("").forEach((ch) => {
+            if (ch === ":") {
+                const sep = document.createElement("span");
+                sep.className = "cl-sep";
+                sep.textContent = ":";
+                clock.appendChild(sep);
+                return;
+            }
+            const cell = document.createElement("span");
+            cell.className = "cl-d";
+            const col = document.createElement("span");
+            col.className = "cl-col";
+            for (let d = 0; d < 10; d++) {
+                const n = document.createElement("span");
+                n.textContent = d;
+                col.appendChild(n);
+            }
+            cell.appendChild(col);
+            clock.appendChild(cell);
+            clockCols.push(col);
+        });
+        const tzEl = document.createElement("span");
+        tzEl.className = "cl-tz";
+        tzEl.textContent = tz;
+        clock.appendChild(tzEl);
+    }
     const tickClock = () => {
-        if (clock) clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false });
+        if (!clock) return;
+        const digits = new Date().toLocaleTimeString("en-GB", { hour12: false }).replace(/:/g, "");
+        clockCols.forEach((col, i) => {
+            const d = digits[i] || "0";
+            if (col.dataset.d !== d) {
+                col.dataset.d = d;
+                col.style.transform = `translateY(${-d * 1.5}em)`;
+            }
+        });
     };
     tickClock();
     setInterval(tickClock, 1000);
@@ -148,24 +197,71 @@
     /* ---- career telemetry graph (responsive, JS-built) ------------------------------ */
 
     const SIGNAL_MILESTONES = [[2009, 0], [2016, .38], [2020, .64], [2022, .84], [2026, 1]];
+    const SIGNAL_Y0 = 2009, SIGNAL_Y1 = 2026;
     const signalSvg = $("#signalSvg");
+
+    /* exact-fit quartic through the milestones: Vandermonde system, Gaussian elimination */
+    const SIGNAL_POLY = (() => {
+        const pts = SIGNAL_MILESTONES.map(([yr, p]) => [yr - SIGNAL_Y0, p]);
+        const n = pts.length;
+        const A = pts.map(([x]) => Array.from({ length: n }, (_, j) => x ** j));
+        const b = pts.map(([, y]) => y);
+        for (let c = 0; c < n; c++) {
+            let p = c;
+            for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+            [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]];
+            for (let r = c + 1; r < n; r++) {
+                const f = A[r][c] / A[c][c];
+                for (let k = c; k < n; k++) A[r][k] -= f * A[c][k];
+                b[r] -= f * b[c];
+            }
+        }
+        const co = new Array(n);
+        for (let r = n - 1; r >= 0; r--) {
+            let s = b[r];
+            for (let k = r + 1; k < n; k++) s -= A[r][k] * co[k];
+            co[r] = s / A[r][r];
+        }
+        return co;
+    })();
+    const signalVal = (t) => SIGNAL_POLY.reduce((s, c, j) => s + c * t ** j, 0);
+
+    (() => {
+        const eqEl = $("#signalEq");
+        if (!eqEl) return;
+        const SUPS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+        const sup = (num) => String(num).split("").map((ch) => (ch === "-" ? "⁻" : SUPS[+ch])).join("");
+        const coef = (c) => {
+            const a = Math.abs(c);
+            const exp = Math.floor(Math.log10(a));
+            return exp >= -2 ? a.toFixed(3) : `${(a / 10 ** exp).toFixed(2)}·10${sup(exp)}`;
+        };
+        const terms = [];
+        for (let j = SIGNAL_POLY.length - 1; j >= 1; j--) {
+            const c = SIGNAL_POLY[j];
+            if (Math.abs(c) < 1e-12) continue;
+            terms.push(`${terms.length ? (c < 0 ? " − " : " + ") : c < 0 ? "−" : ""}${coef(c)}t${j > 1 ? sup(j) : ""}`);
+        }
+        eqEl.innerHTML =
+            `<span class="eq">ƒ(t) = ${terms.join("")}</span>` +
+            `<span>t = YRS SINCE ${SIGNAL_Y0} · QUARTIC FIT · R² = 1.000</span>`;
+    })();
 
     const buildSignal = () => {
         if (!signalSvg) return;
         const W = Math.max(320, signalSvg.clientWidth || 800);
         const H = 170;
         const m = 36, top = 24, bottom = H - 36;
-        const X = (yr) => m + (yr - 2009) / (2026 - 2009) * (W - 2 * m);
+        const X = (yr) => m + (yr - SIGNAL_Y0) / (SIGNAL_Y1 - SIGNAL_Y0) * (W - 2 * m);
         const Y = (p) => bottom - p * (bottom - top);
 
+        const STEPS = 96;
         let dPath = "";
-        SIGNAL_MILESTONES.forEach(([yr, p], i) => {
-            const x = X(yr), y = Y(p);
-            if (i === 0) { dPath = `M${x},${y}`; return; }
-            const py = Y(SIGNAL_MILESTONES[i - 1][1]);
-            dPath += ` L${x},${py} L${x},${y}`;
-        });
-        dPath += ` L${W - m + 14},${Y(1)}`;
+        for (let s = 0; s <= STEPS; s++) {
+            const t = (SIGNAL_Y1 - SIGNAL_Y0) * s / STEPS;
+            const x = X(SIGNAL_Y0 + t), y = Y(Math.max(0, signalVal(t)));
+            dPath += `${s ? " L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+        }
 
         const axes = [bottom, (top + bottom) / 2, top].map((y, i) =>
             `<line x1="0" y1="${y}" x2="${W}" y2="${y}" class="axis${i ? " faint" : ""}"/>`).join("");
@@ -173,8 +269,14 @@
             const last = i === SIGNAL_MILESTONES.length - 1;
             return `<circle cx="${X(yr)}" cy="${Y(p)}" r="${last ? 5 : 4}"${last ? ' class="live"' : ""}/>`;
         }).join("");
-        const ticks = SIGNAL_MILESTONES.map(([yr]) =>
-            `<text x="${X(yr)}" y="${H - 10}">${yr === 2026 ? "NOW" : yr}</text>`).join("");
+        let prevTickX = -Infinity;
+        const ticks = SIGNAL_MILESTONES.map(([yr], i) => {
+            const x = X(yr), last = i === SIGNAL_MILESTONES.length - 1;
+            // drop labels that would collide on narrow screens; endpoints always shown
+            if (!last && (x - prevTickX < 42 || X(SIGNAL_Y1) - x < 42)) return "";
+            prevTickX = x;
+            return `<text x="${x}" y="${H - 10}">${last ? "NOW" : yr}</text>`;
+        }).join("");
 
         signalSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
         signalSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -277,7 +379,7 @@
     /* ---- feint light: borders chase the cursor ----------------------------------------------- */
 
     if (finePointer) {
-        $$(".btn, .op, .signal-panel, .contact-panel, .palette-box, .avatar").forEach((el) => {
+        $$(".op, .signal-panel, .contact-panel, .palette-box, .avatar").forEach((el) => {
             el.classList.add("lit");
             el.addEventListener("pointermove", (e) => {
                 const r = el.getBoundingClientRect();
@@ -302,99 +404,167 @@
         career.addEventListener("mouseleave", () => career.style.setProperty("--glow-o", "0"));
     }
 
-    /* ---- face map ---------------------------------------------------------------------------------- */
+    /* ---- bio-scan: sharpened image + edge contours on hover ----------------------------------------- */
 
-    (() => {
-        const fm = $("#facemap");
+    const Face = (() => {
         const frame = $("#avatarFrame");
         const readout = $("#faceReadout");
-        if (!fm || !frame) return;
+        if (!frame) return { recolor() {}, setPulse() {} };
 
-        // landmark mesh tuned to assets/avatar-hd.jpg (viewBox 0..100)
-        const RING = [[50, 12], [60, 14], [68, 20], [71, 32], [69, 46], [66, 58], [60, 70], [53, 80],
-                      [50, 84], [47, 80], [40, 70], [34, 58], [31, 46], [29, 32], [32, 20], [40, 14]];
-        const BRL = [[35, 40], [40, 38], [45, 40]];
-        const BRR = [[55, 40], [60, 38], [65, 40]];
-        const EYL = [[38, 45], [41, 43.6], [44, 45], [41, 46.4]];
-        const EYR = [[56, 45], [59, 43.6], [62, 45], [59, 46.4]];
-        const NOSE = [[50, 47], [47.5, 57], [52.5, 57], [50, 60]];
-        const MOUTH = [[42, 68], [46, 66.6], [50, 67.2], [54, 66.6], [58, 68], [50, 70.6]];
-        const EXTRA = [[36, 55], [64, 55], [50, 77]]; // cheekL 40, cheekR 41, chin 42
-        const BASE = [...RING, ...BRL, ...BRR, ...EYL, ...EYR, ...NOSE, ...MOUTH, ...EXTRA];
+        const img = $("img", frame);
+        let bpm = 64;
 
-        const E = [];
-        for (let i = 0; i < 16; i++) E.push([i, (i + 1) % 16]);           // face oval
-        E.push([16, 17], [17, 18], [19, 20], [20, 21]);                   // brows
-        E.push([22, 23], [23, 24], [24, 25], [25, 22]);                   // eye L
-        E.push([26, 27], [27, 28], [28, 29], [29, 26]);                   // eye R
-        E.push([30, 31], [30, 32], [31, 33], [32, 33]);                   // nose
-        E.push([34, 35], [35, 36], [36, 37], [37, 38], [34, 39], [39, 38]); // mouth
-        E.push([13, 16], [3, 21]);                                         // temples -> brows
-        E.push([16, 22], [18, 24], [19, 26], [21, 28]);                    // brows -> eyes
-        E.push([24, 30], [26, 30]);                                        // eyes -> bridge
-        E.push([33, 36], [31, 34], [32, 38]);                              // nose -> mouth
-        E.push([40, 22], [40, 12], [40, 11], [40, 34]);                    // cheek L web
-        E.push([41, 28], [41, 4], [41, 5], [41, 38]);                      // cheek R web
-        E.push([42, 39], [42, 7], [42, 9]);                                // chin web
+        /* processing layers */
+        const procCanvas = document.createElement("canvas");
+        procCanvas.className = "avatar-proc";
+        const edgeCanvas = document.createElement("canvas");
+        edgeCanvas.className = "avatar-edges";
+        frame.append(procCanvas, edgeCanvas);
 
-        fm.innerHTML =
-            `<path class="fm-box" d="M24,8 H78 V94 H24 Z"/>` +
-            `<line class="fm-scan" id="fmScan" x1="24" x2="78" y1="8" y2="8"/>` +
-            `<g id="fmMesh">` +
-            E.map(() => "<line/>").join("") +
-            BASE.map(() => `<circle r=".8"/>`).join("") +
-            `</g>`;
+        let edgeMap = null, pw = 0, ph = 0;
 
-        const mesh = $("#fmMesh", fm);
-        const scan = $("#fmScan", fm);
-        const lineEls = $$("line", mesh);
-        const dotEls = $$("circle", mesh);
-        let nx = 0, ny = 0, raf = null, lastT = 0;
-
-        const animate = (t) => {
-            raf = requestAnimationFrame(animate);
-            if (t - lastT < 33) return;
-            lastT = t;
-            // heartbeat scale around face center + per-vertex breathing drift
-            const beat = 1 + 0.014 * Math.pow(Math.max(0, Math.sin(t * 0.0052)), 6);
-            const sacc = Math.floor(t / 1700) % 3 === 0 ? Math.sin(t * 0.02) * 0.5 : 0; // eye micro-saccades
-            const pts = BASE.map(([x, y], i) => {
-                let px = x + Math.sin(t * 0.0021 + i * 1.93) * 0.5 + nx * 2.4;
-                let py = y + Math.cos(t * 0.0017 + i * 2.41) * 0.45 + ny * 2;
-                if (i >= 22 && i <= 29) px += sacc;
-                return [(px - 50) * beat + 50, (py - 50) * beat + 50];
-            });
-            E.forEach(([a, b], i) => {
-                const el = lineEls[i];
-                el.setAttribute("x1", pts[a][0].toFixed(2)); el.setAttribute("y1", pts[a][1].toFixed(2));
-                el.setAttribute("x2", pts[b][0].toFixed(2)); el.setAttribute("y2", pts[b][1].toFixed(2));
-            });
-            dotEls.forEach((el, i) => {
-                el.setAttribute("cx", pts[i][0].toFixed(2));
-                el.setAttribute("cy", pts[i][1].toFixed(2));
-            });
-            const sy = 8 + ((Math.sin(t * 0.0011) + 1) / 2) * 86;
-            scan.setAttribute("y1", sy.toFixed(1));
-            scan.setAttribute("y2", sy.toFixed(1));
-            scan.setAttribute("opacity", (0.35 + 0.3 * Math.abs(Math.sin(t * 0.009))).toFixed(2));
+        const boxBlur = (src, w, h, r) => {
+            const out = new Float32Array(src.length);
+            const tmp = new Float32Array(src.length);
+            const span = 2 * r + 1;
+            for (let y = 0; y < h; y++) {            // horizontal pass
+                let acc = 0;
+                for (let x = -r; x <= r; x++) acc += src[y * w + Math.min(w - 1, Math.max(0, x))];
+                for (let x = 0; x < w; x++) {
+                    tmp[y * w + x] = acc / span;
+                    acc += src[y * w + Math.min(w - 1, x + r + 1)] - src[y * w + Math.max(0, x - r)];
+                }
+            }
+            for (let x = 0; x < w; x++) {            // vertical pass
+                let acc = 0;
+                for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
+                for (let y = 0; y < h; y++) {
+                    out[y * w + x] = acc / span;
+                    acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
+                }
+            }
+            return out;
         };
+
+        const accentRgb = () => {
+            const c = getComputedStyle(root).getPropertyValue("--accent").trim();
+            return c.startsWith("#") && c.length >= 7 ? hexRgb(c) : [61, 245, 140];
+        };
+
+        const drawEdges = () => {
+            if (!edgeMap) return;
+            const ec = edgeCanvas.getContext("2d");
+            const id = ec.createImageData(pw, ph);
+            const [r, g, b] = accentRgb();
+            for (let i = 0; i < edgeMap.length; i++) {
+                const a = edgeMap[i];
+                if (!a) continue;
+                const o = i * 4;
+                id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = a;
+            }
+            ec.putImageData(id, 0, 0);
+        };
+
+        const process = () => {
+            pw = Math.min(512, img.naturalWidth || 512);
+            ph = Math.min(512, img.naturalHeight || 512);
+            if (!pw || !ph) return;
+            const off = document.createElement("canvas");
+            off.width = pw; off.height = ph;
+            const oc = off.getContext("2d", { willReadFrequently: true });
+            oc.drawImage(img, 0, 0, pw, ph);
+            let data;
+            try { data = oc.getImageData(0, 0, pw, ph).data; }
+            catch { return; }                         // tainted canvas (file://) — img fallback stays
+            const N = pw * ph;
+            const gray = new Float32Array(N);
+            for (let i = 0; i < N; i++) {
+                const o = i * 4;
+                gray[i] = data[o] * .299 + data[o + 1] * .587 + data[o + 2] * .114;
+            }
+            /* unsharp mask = the "deblur": original + k·(original − gaussian) */
+            const soft = boxBlur(boxBlur(gray, pw, ph, 2), pw, ph, 2);
+            const sharp = new Float32Array(N);
+            for (let i = 0; i < N; i++) sharp[i] = Math.max(0, Math.min(255, gray[i] + 1.5 * (gray[i] - soft[i])));
+
+            procCanvas.width = pw; procCanvas.height = ph;
+            const pc = procCanvas.getContext("2d");
+            const pd = pc.createImageData(pw, ph);
+            for (let i = 0; i < N; i++) {
+                const v = Math.max(0, Math.min(255, (sharp[i] - 128) * 1.12 + 116));
+                const o = i * 4;
+                pd.data[o] = pd.data[o + 1] = pd.data[o + 2] = v;
+                pd.data[o + 3] = 255;
+            }
+            pc.putImageData(pd, 0, 0);
+
+            /* Sobel over the sharpened field -> contour map */
+            edgeMap = new Uint8ClampedArray(N);
+            for (let y = 1; y < ph - 1; y++) {
+                for (let x = 1; x < pw - 1; x++) {
+                    const i = y * pw + x;
+                    const gx = -sharp[i - pw - 1] - 2 * sharp[i - 1] - sharp[i + pw - 1]
+                             + sharp[i - pw + 1] + 2 * sharp[i + 1] + sharp[i + pw + 1];
+                    const gy = -sharp[i - pw - 1] - 2 * sharp[i - pw] - sharp[i - pw + 1]
+                             + sharp[i + pw - 1] + 2 * sharp[i + pw] + sharp[i + pw + 1];
+                    const mag = Math.sqrt(gx * gx + gy * gy);
+                    edgeMap[i] = mag > 70 ? Math.min(220, (mag - 70) * 1.6) : 0;
+                }
+            }
+            edgeCanvas.width = pw; edgeCanvas.height = ph;
+            drawEdges();
+            if (readout) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
+        };
+        if (img) {
+            if (img.complete && img.naturalWidth) process();
+            else img.addEventListener("load", process, { once: true });
+        }
+
+        const setPulse = (v) => {
+            bpm = v;
+            if (readout && !hovering) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
+        };
+        let hovering = false;
 
         frame.addEventListener("pointermove", (e) => {
             const r = frame.getBoundingClientRect();
-            nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
-            ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+            const nx = Math.abs((e.clientX - r.left) / r.width - 0.5) * 2;
+            const ny = Math.abs((e.clientY - r.top) / r.height - 0.5) * 2;
             if (readout) readout.textContent =
-                `FACE MAP v3.0 · LOCK ${(96.8 + Math.abs(nx) + Math.abs(ny)).toFixed(1)}% · PULSE 64`;
+                `BIO-SCAN v3.0 · LOCK ${(96.8 + nx + ny).toFixed(1)}% · PULSE ${Math.round(bpm)}`;
         });
         frame.addEventListener("pointerenter", () => {
+            hovering = true;
             Sound.blip(1800, .05, .03);
-            if (!reduced && !raf) raf = requestAnimationFrame(animate);
         });
         frame.addEventListener("pointerleave", () => {
-            nx = ny = 0;
-            if (raf) { cancelAnimationFrame(raf); raf = null; }
-            if (readout) readout.textContent = "FACE MAP v3.0 · IDLE";
+            hovering = false;
+            if (readout) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
         });
+
+        return { recolor: drawEdges, setPulse };
+    })();
+
+    /* ---- simulated vitals: bounded random walks, pulse feeds the bio-scan readout ------------------ */
+
+    (() => {
+        const els = { pulse: $("#vPulse"), bp: $("#vBp"), spo2: $("#vSpo2"), temp: $("#vTemp") };
+        let pulse = 64, sys = 118, dia = 76, spo2 = 98.4, temp = 36.6;
+        const walk = (v, min, max, step) => Math.min(max, Math.max(min, v + (Math.random() - .5) * step));
+        const tick = () => {
+            pulse = walk(pulse, 58, 76, 4);
+            sys = walk(sys, 110, 126, 3);
+            dia = walk(dia, 70, 84, 2.5);
+            spo2 = walk(spo2, 96.5, 99.4, .7);
+            temp = walk(temp, 36.4, 36.9, .1);
+            if (els.pulse) els.pulse.textContent = Math.round(pulse) + " BPM";
+            if (els.bp) els.bp.textContent = Math.round(sys) + "/" + Math.round(dia);
+            if (els.spo2) els.spo2.textContent = Math.round(spo2) + "%";
+            if (els.temp) els.temp.textContent = temp.toFixed(1) + "°C";
+            Face.setPulse(pulse);
+        };
+        tick();
+        setInterval(tick, 2000);
     })();
 
     /* ---- world map background --------------------------------------------------------------------------- */
@@ -697,7 +867,7 @@ void main(){
             document.head.appendChild(s);
         });
 
-        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora"];
+        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud"];
         const skipEl = (el) => el.id === "crtGL" || el.id === "worldMap" || el.id === "dirt" ||
             SKIP.some((c) => el.classList && el.classList.contains(c));
 
@@ -1211,6 +1381,8 @@ void main(){
         { k: "font brutal", d: "Martian Mono display", run: () => setFont("brutal") },
         { k: "font mono", d: "JetBrains Mono everywhere", run: () => setFont("mono") },
         { k: "sound toggle", d: "generative sequencer on/off", run: () => Sound.toggle() },
+        { k: "neural lab", d: "NN-31 — engine, tests, live training", run: () => (location.href = "apps/neural/") },
+        { k: "neural toggle", d: "show/hide the visitor model", run: () => window.Mind && window.Mind.toggle() },
         { k: "legacy", d: "flash the 2019 site palette", run: legacy },
         { k: "whoami", d: "you know who you are", run: goto("#subject") },
     ];
@@ -1238,7 +1410,30 @@ void main(){
         render();
     };
 
+    /* body scroll lock: keeps iOS Safari from scrolling/jumping the page while the
+       palette is open (focusing the input otherwise scrolls it into view) */
+    let lockedY = 0;
+    const lockScroll = () => {
+        lockedY = scrollY;
+        document.body.style.position = "fixed";
+        document.body.style.top = -lockedY + "px";
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+    };
+    const unlockScroll = () => {
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        const prev = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";       // bypass css smooth-scroll for the restore
+        scrollTo(0, lockedY);
+        root.style.scrollBehavior = prev;
+    };
+
     const openPalette = () => {
+        if (!palette.hidden) return;
+        lockScroll();
         palette.hidden = false;
         input.value = "";
         filter();
@@ -1246,7 +1441,12 @@ void main(){
         buzz(5);
         Sound.blip(1760, .06, .035);
     };
-    const closePalette = () => { palette.hidden = true; input.blur(); };
+    const closePalette = () => {
+        if (palette.hidden) return;
+        palette.hidden = true;
+        input.blur();
+        unlockScroll();
+    };
     const exec = (c) => { closePalette(); buzz(8); Sound.blip(880, .1, .05); c.run(); };
 
     $("#paletteBtn").addEventListener("click", openPalette);

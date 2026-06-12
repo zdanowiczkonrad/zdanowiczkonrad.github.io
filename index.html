@@ -19,6 +19,7 @@
 <body>
 
     <canvas id="worldMap" aria-hidden="true"></canvas>
+    <svg id="neuralBg" class="neural-bg" aria-hidden="true"></svg>
     <div class="grid-bg" aria-hidden="true"></div>
     <div class="fx-aurora" aria-hidden="true"></div>
     <div class="fx-crt" aria-hidden="true"></div>
@@ -79,8 +80,7 @@
                         <div class="panel-inner">
                             <div class="avatar-frame" id="avatarFrame">
                                 <img src="assets/avatar-hd.jpg" alt="Konrad Zdanowicz" width="512" height="512">
-                                <svg class="facemap" id="facemap" viewBox="0 0 100 100" aria-hidden="true"></svg>
-                                <div class="face-readout" id="faceReadout">FACE MAP v2.1 · IDLE</div>
+                                <div class="face-readout" id="faceReadout">BIO-SCAN v3.0 · ACQUIRING…</div>
                             </div>
                             <figcaption>SUBJECT — VISUAL ID</figcaption>
                         </div>
@@ -89,6 +89,10 @@
                         <li><span>STATUS</span><b class="ok">OPERATIONAL</b></li>
                         <li><span>BASE</span><b>WROCŁAW, PL</b></li>
                         <li><span>YRS SHIPPING</span><b><span data-count="17">0</span></b></li>
+                        <li><span>PULSE</span><b class="ok" id="vPulse">-- BPM</b></li>
+                        <li><span>BP</span><b id="vBp">---/--</b></li>
+                        <li><span>SPO₂</span><b id="vSpo2">--%</b></li>
+                        <li><span>CORE TEMP</span><b id="vTemp">--.-°C</b></li>
                     </ul>
                 </aside>
             </div>
@@ -101,6 +105,7 @@
             <div class="panel signal-panel reveal">
                 <div class="panel-inner">
                     <svg class="signal" id="signalSvg" role="img" aria-label="Career trajectory 2009 to now"></svg>
+                    <div class="signal-eq" id="signalEq" aria-hidden="true"></div>
                 </div>
             </div>
 
@@ -200,6 +205,13 @@
         <span class="foot-hint">PRESS <kbd>⌘K</kbd> — AND THE OLD RATE WAS $119/H</span>
     </footer>
 
+    <a class="neural-hud" id="neuralHud" href="apps/neural/" aria-label="Neural lab — visitor model">
+        <span class="nh-title">NEURAL UPLINK<i class="nh-dot"></i></span>
+        <span class="nh-row"><span>VISITOR</span><b id="nhArch">—</b></span>
+        <span class="nh-row"><span>NEXT MOVE</span><b id="nhNext">—</b></span>
+        <span class="nh-meta" id="nhMeta">BOOT…</span>
+    </a>
+
     <nav class="bottombar" aria-label="Sections">
         <a href="#subject" data-nav>01</a>
         <a href="#telemetry" data-nav>02</a>
@@ -225,6 +237,8 @@
     </div>
 
     <script src="map-data.js"></script>
+    <script src="nn.js"></script>
+    <script src="neural.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
