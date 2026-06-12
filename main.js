@@ -42,6 +42,7 @@
         Sound.retune();
         CrtGL.sync();
         Dirt.sync();
+        if (t !== "amber" && window.CrtKnobs) window.CrtKnobs.hide();
     };
     const setFont = (f) => {
         if (!FONTS.includes(f)) return;
@@ -731,7 +732,16 @@
     const CrtGL = (() => {
         const canvas = $("#crtGL");
         const eligible = canvas && !reduced && finePointer && innerWidth > 900;
-        if (!eligible) return { sync() {} };
+
+        /* tube control knobs (0..2, 1 = stock) — driven by the CrtKnobs panel */
+        const knobs = { jitter: 1, snow: 1, intf: 1 };
+        try {
+            const saved = JSON.parse(localStorage.getItem("crtKnobs") || "{}");
+            for (const k in knobs) if (typeof saved[k] === "number") knobs[k] = Math.min(2, Math.max(0, saved[k]));
+        } catch {}
+        const save = () => { try { localStorage.setItem("crtKnobs", JSON.stringify(knobs)); } catch {} };
+
+        if (!eligible) return { sync() {}, knobs, save };
 
         const BARREL = 0.24;
         let gl = null, U = {}, tex = null, mapTex = null, texW = 0, texH = 0, texScale = 1;
@@ -741,6 +751,8 @@
         let bgCol = [0.024, 0.02, 0.012];
         let hovEl = null, hovRect = [0, 0, 0, 0], hovA = 0, patchBusy = false, patchQueue = [];
         let frameN = 0, recapT = null;
+        const REPAINT_MS = 10000, SCAN_MS = 4000;   /* re-shoot cadence / top-to-bottom sweep duration */
+        let scanSnap = null, scanCtx = null, scanRow = 0, repaintT = null;
 
         const VS = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
         const FS = `
@@ -751,7 +763,8 @@ uniform vec2 r;          /* canvas device px */
 uniform vec2 ts;         /* snapshot texture px */
 uniform vec3 bg;
 uniform vec4 hov;        /* hover rect, page device px (x, y, w, h) */
-uniform float t, ready, scroll, m, glitch, tearY, vel, hovA, grid;
+uniform float t, ready, scroll, m, glitch, tearY, vel, hovA, grid, scanY;  /* scanY: repaint sweep, page device px (idle: -2e4) */
+uniform vec3 noise;      /* tube control knobs: x jitter, y background static, z interference (0..2, 1 = stock) */
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main(){
     vec2 uv = vec2(gl_FragCoord.x, r.y - gl_FragCoord.y) / r;  /* top-left origin */
@@ -765,6 +778,9 @@ void main(){
     float wob = sin(d.y * 130.0 + t * 6.3) * (vel * 1.6 + glitch * 2.5);
     float px = d.x * r.x + wob;
     float py = d.y * r.y + scroll;
+    /* per-line jitter + a drifting interference band that shimmers rows sideways */
+    float ib = exp(-abs(uv.y - fract(t * 0.037)) * 24.0) * noise.z;
+    px += (hash(vec2(floor(d.y * r.y), floor(t * 90.0))) - 0.5) * (0.7 * noise.x + ib * 6.0 + glitch * 3.0);
     float band = (1.0 - smoothstep(20.0, 90.0, abs(py - tearY))) * glitch;  /* sync tear */
     px += band * 70.0 * (hash(vec2(floor(t * 27.0), 1.0)) - 0.35);
     float split = 0.8 + vel * 1.4 + glitch * 5.0;
@@ -794,6 +810,10 @@ void main(){
     float hy = step(hov.y, py) * step(py, hov.y + hov.w);
     col += vec3(1.0, 0.72, 0.12) * hx * hy * hovA * (0.09 + 0.03 * sin(t * 4.0));
 
+    /* repaint sweep: bright scan line + long phosphor trail over the freshly drawn rows */
+    float sd = scanY - py;
+    col += vec3(1.0, 0.70, 0.12) * ((1.0 - smoothstep(0.0, 20.0, abs(sd))) * 0.6 + (sd > 0.0 ? exp(-sd / 200.0) * 0.16 : 0.0));
+
     /* cheap phosphor bloom */
     vec4 b1 = texture2D(tex, tc + vec2(0.0, 2.2 * m / ts.y));
     vec4 b2 = texture2D(tex, tc - vec2(2.2 * m / ts.x, 0.0));
@@ -802,17 +822,34 @@ void main(){
     /* glass: scanlines & grille fixed to the screen, grain, vignette, flicker */
     float sl = 0.80 + 0.20 * sin(d.y * r.y * 2.094);
     float grille = 0.95 + 0.05 * sin(d.x * r.x * 1.571);
-    float grain = 0.94 + 0.06 * hash(floor(uv * r / 1.5) + vec2(floor(t * 24.0)));
+    float grain = 0.89 + 0.11 * hash(floor(uv * r / 1.5) + vec2(floor(t * 24.0)));
     float vig = 1.0 - r2 * 0.75;
     float fl = 0.985 + 0.012 * sin(t * 11.0) + 0.003 * sin(t * 73.0) - band * 0.25;
     col *= sl * grille * grain * vig * fl;
+
+    /* brightness noise riding the interference band */
+    col += vec3(1.0, 0.72, 0.2) * ib * (hash(vec2(floor(sp.y / 2.0), floor(t * 47.0))) - 0.4) * 0.10;
+
+    /* background static: faint amber-tinted noise across the tube during normal
+       view — STATIC knob = intensity & visibility (0 = clean glass) */
+    col += vec3(1.0, 0.72, 0.2) * hash(floor(gl_FragCoord.xy / 2.0) + vec2(floor(t * 30.0), 3.0)) * (0.055 * noise.y);
+
+    /* cathode beam: the raster refresh itself — a bright line rolling down the
+       glass, phosphor dimming with time-since-refresh in the rows behind it */
+    float by = fract(t * 0.42);
+    float since = fract(by - d.y);                /* 0 = the beam just passed this row */
+    col *= 0.80 + 0.45 * exp(-since * 4.0);
+    col += vec3(1.0, 0.72, 0.18) * (1.0 - smoothstep(0.0, 0.005, abs(d.y - by))) * 0.22;
 
     /* amber phosphor cast + idle glow */
     col = mix(col, vec3(col.g * 1.25, col.g * 0.85, col.g * 0.25), 0.22);
     col += vec3(1.0, 0.69, 0.1) * 0.012 * vig;
 
     if (ready < 0.5) col = vec3(1.0, 0.72, 0.2) * hash(floor(uv * r / 2.0) + vec2(floor(t * 30.0))) * 0.22;
-    gl_FragColor = vec4(col * bezel, 0.55);  /* alpha + preserved buffer = phosphor persistence */
+    /* phosphor persistence: low alpha + preserved buffer = ghost trails and burn-in
+       accumulate; the sweep redraws at full strength, wiping the rows it just passed */
+    float wipe = (sd > 0.0) ? exp(-sd / 240.0) : 0.0;
+    gl_FragColor = vec4(col * bezel, mix(0.32, 1.0, wipe));
 }`;
 
         const init = () => {
@@ -836,7 +873,7 @@ void main(){
             const pLoc = gl.getAttribLocation(prog, "p");
             gl.enableVertexAttribArray(pLoc);
             gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
-            ["tex", "map", "r", "ts", "bg", "hov", "t", "ready", "scroll", "m", "glitch", "tearY", "vel", "hovA", "grid"]
+            ["tex", "map", "r", "ts", "bg", "hov", "t", "ready", "scroll", "m", "glitch", "tearY", "vel", "hovA", "grid", "scanY", "noise"]
                 .forEach((n) => (U[n] = gl.getUniformLocation(prog, n)));
             gl.uniform1i(U.tex, 0);
             gl.uniform1i(U.map, 1);
@@ -867,11 +904,11 @@ void main(){
             document.head.appendChild(s);
         });
 
-        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud", "chatwin", "ghost-cursor"];
+        const SKIP = ["statusbar", "bottombar", "palette", "boot", "crosshair", "legacy-flash", "fx-crt", "fx-noise", "fx-dread", "grid-bg", "fx-aurora", "neural-bg", "neural-hud", "chatwin", "ghost-cursor", "crt-knobs"];
         const skipEl = (el) => el.id === "crtGL" || el.id === "worldMap" || el.id === "dirt" ||
             SKIP.some((c) => el.classList && el.classList.contains(c));
 
-        const capture = async () => {
+        const shoot = async () => {
             root.classList.add("crt-cap");
             $$(".reveal:not(.in)").forEach(onReveal);
             settleScrambles();
@@ -880,25 +917,54 @@ void main(){
                 const pageH = root.scrollHeight;
                 const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
                 texScale = Math.min(dpr, (maxTex - 8) / pageH, (maxTex - 8) / innerWidth, 2);
-                const snap = await html2canvas(document.body, {
+                return await html2canvas(document.body, {
                     backgroundColor: null,            /* transparent: bg+grid+map live in the shader */
                     scale: texScale,
                     logging: false,
                     useCORS: true,
                     ignoreElements: skipEl,
+                    /* scroll is virtual on the tube: the texture is always the unscrolled
+                       page and the shader offsets by the live scrollY uniform — without
+                       this pin a shot taken mid-page comes out shifted by the scroll offset */
+                    scrollX: 0, scrollY: 0,
                 });
-                texW = snap.width; texH = snap.height;
-                if (tex) gl.deleteTexture(tex);
-                tex = gl.createTexture();
-                gl.bindTexture(gl.TEXTURE_2D, tex);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             } finally {
                 root.classList.remove("crt-cap");
             }
+        };
+
+        const upload = (snap) => {
+            texW = snap.width; texH = snap.height;
+            if (tex) gl.deleteTexture(tex);
+            tex = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        };
+
+        const capture = async () => {
+            upload(await shoot());
+            scanSnap = null;                          /* wholesale swap obsoletes any sweep in flight */
+        };
+
+        /* periodic repaint: re-shoot the page, then the frame loop sweeps the fresh
+           frame into the live texture top-to-bottom behind a visible scan line */
+        const scanRepaint = async () => {
+            if (!active || capturing || patchBusy || scanSnap || document.hidden || !window.html2canvas) return;
+            capturing = true;
+            try {
+                const snap = await shoot();
+                if (snap.width === texW && snap.height === texH) {
+                    scanCtx = snap.getContext("2d", { willReadFrequently: true });
+                    scanSnap = snap; scanRow = 0;
+                } else {
+                    upload(snap);                     /* page reflowed since last shot — swap outright */
+                }
+            } catch {}
+            capturing = false;
         };
 
         const uploadMap = () => {
@@ -964,6 +1030,10 @@ void main(){
                         useCORS: true,
                         ignoreElements: skipEl,
                         x: x0, y: y0, width: w0, height: h0,
+                        /* x/y are page-absolute — without this the crop origin
+                           drifts by the live scroll offset and patches paint the
+                           wrong content (visible as garbled hover on the tube) */
+                        scrollX: 0, scrollY: 0,
                     });
                     el.classList.remove("fake-hover");
                     root.classList.remove("crt-cap");
@@ -1034,6 +1104,19 @@ void main(){
                 tearV = sc + Math.random() * canvas.height;
             }
             if ((frameN++ & 1) === 0) uploadMap();   /* live map layer at ~30fps */
+            if (scanSnap && tex) {
+                const rows = Math.min(Math.max(2, Math.round(texH / (SCAN_MS / 16.7))), texH - scanRow);
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, scanRow, gl.RGBA, gl.UNSIGNED_BYTE,
+                    scanCtx.getImageData(0, scanRow, texW, rows));
+                scanRow += rows;
+                if (scanRow >= texH) {
+                    scanSnap = scanCtx = null;
+                    const ht = hovEl && hovEl.closest(INTERACTIVE);
+                    if (ht) requestPatch(ht, true);  /* fresh shot lost the hover styling — re-patch it */
+                }
+            }
+            gl.uniform1f(U.scanY, scanSnap ? scanRow / (texScale / dpr) : -2e4);
             gl.uniform2f(U.r, canvas.width, canvas.height);
             gl.uniform2f(U.ts, Math.max(1, texW), Math.max(1, texH));
             gl.uniform3f(U.bg, bgCol[0], bgCol[1], bgCol[2]);
@@ -1047,6 +1130,7 @@ void main(){
             gl.uniform1f(U.vel, vel);
             gl.uniform1f(U.hovA, hovA);
             gl.uniform1f(U.grid, 56 * dpr);
+            gl.uniform3f(U.noise, knobs.jitter, knobs.snow, knobs.intf);
             if (tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); }
             gl.drawArrays(gl.TRIANGLES, 0, 3);
         };
@@ -1067,6 +1151,8 @@ void main(){
                     root.classList.remove("crt-tuning");
                     root.classList.add("crt-on");
                     active = true;
+                    clearInterval(repaintT);
+                    repaintT = setInterval(scanRepaint, REPAINT_MS);
                 }
             } catch (err) {
                 failed = true;
@@ -1081,6 +1167,8 @@ void main(){
             setHover(null, 0, 0);
             patchQueue = [];
             clearTimeout(recapT);
+            clearInterval(repaintT); repaintT = null;
+            scanSnap = scanCtx = null;
             if (raf) { cancelAnimationFrame(raf); raf = null; }
             root.classList.remove("crt-on", "crt-tuning");
             if (tex) { gl.deleteTexture(tex); tex = null; }
@@ -1099,7 +1187,72 @@ void main(){
             rsT = setTimeout(() => { size(); capture(); }, 250);
         });
         sync();
-        return { sync };
+        return { sync, knobs, save };
+    })();
+
+    /* ---- tube control: hardware knobs for the amber shader noise -------------------------------- */
+
+    const CrtKnobs = (() => {
+        const K = CrtGL.knobs;
+        const DEFS = [
+            { k: "jitter", label: "JITTER" },
+            { k: "snow", label: "STATIC" },
+            { k: "intf", label: "INTERF" },
+        ];
+        let panel = null;
+
+        const build = () => {
+            panel = document.createElement("div");
+            panel.className = "crt-knobs";
+            panel.innerHTML = `
+                <div class="ck-head"><span>TUBE CONTROL</span><button class="ck-close" aria-label="Close tube control">✕</button></div>
+                <div class="ck-row"></div>
+                <div class="ck-foot">DRAG · SCROLL · 2×CLICK RESETS</div>`;
+            const row = $(".ck-row", panel);
+            DEFS.forEach(({ k, label }) => {
+                const knob = document.createElement("div");
+                knob.className = "ck-knob";
+                knob.innerHTML = `<div class="ck-dial" tabindex="0" role="slider" aria-label="${label}"
+                    aria-valuemin="0" aria-valuemax="2"><div class="ck-ind"></div></div>
+                    <label>${label}</label><span class="ck-val"></span>`;
+                row.appendChild(knob);
+                const dial = $(".ck-dial", knob), ind = $(".ck-ind", knob), val = $(".ck-val", knob);
+                const set = (v, tick) => {
+                    v = Math.round(Math.min(2, Math.max(0, v)) * 100) / 100;
+                    if (tick && Math.round(v * 20) !== Math.round(K[k] * 20)) Sound.blip(900 + v * 500, .03, .02);
+                    K[k] = v;
+                    ind.style.transform = `rotate(${(v - 1) * 135}deg)`;   /* 0..2 -> -135°..+135° */
+                    val.textContent = v.toFixed(2);
+                    dial.setAttribute("aria-valuenow", v);
+                    CrtGL.save();
+                };
+                set(K[k]);
+                let sy = 0, sv = 0;
+                dial.addEventListener("pointerdown", (e) => {
+                    e.preventDefault();
+                    dial.setPointerCapture(e.pointerId);
+                    sy = e.clientY; sv = K[k];
+                });
+                dial.addEventListener("pointermove", (e) => {
+                    if (dial.hasPointerCapture(e.pointerId)) set(sv + (sy - e.clientY) / 70, true);
+                });
+                dial.addEventListener("wheel", (e) => { e.preventDefault(); set(K[k] - e.deltaY * 0.0025, true); }, { passive: false });
+                dial.addEventListener("dblclick", () => { set(1); Sound.blip(880, .08, .04); });
+                dial.addEventListener("keydown", (e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); set(K[k] + 0.05, true); }
+                    if (e.key === "ArrowDown" || e.key === "ArrowLeft") { e.preventDefault(); set(K[k] - 0.05, true); }
+                });
+            });
+            $(".ck-close", panel).addEventListener("click", hide);
+            document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !panel.hidden) hide(); });
+            document.body.appendChild(panel);
+        };
+
+        const show = () => { if (!panel) build(); panel.hidden = false; };
+        const hide = () => { if (panel) panel.hidden = true; };
+        const toggle = () => (panel && !panel.hidden ? hide() : show());
+        window.CrtKnobs = { toggle, hide };
+        return { toggle, hide };
     })();
 
     /* ---- violet: dust, ash & roaming shadows ------------------------------------------------------------------ */
@@ -1375,6 +1528,7 @@ void main(){
         { k: "mail konrad", d: "send transmission", run: () => (location.href = "mailto:konrad@zdanowicz.dev") },
         { k: "theme green", d: "phosphor", run: () => setTheme("green") },
         { k: "theme amber", d: "cathode-ray tube", run: () => setTheme("amber") },
+        { k: "crt knobs", d: "tube control — jitter / static / interference", run: () => { if (root.dataset.theme !== "amber") setTheme("amber"); CrtKnobs.toggle(); } },
         { k: "theme cyan", d: "ops blue", run: () => setTheme("cyan") },
         { k: "theme violet", d: "do not scroll too deep", run: () => setTheme("violet") },
         { k: "font sharp", d: "Space Grotesk display", run: () => setFont("sharp") },

@@ -275,7 +275,7 @@
                     for (let i = 0; i < nIn; i++) {
                         const [x1, y1] = pos[l][i], [x2, y2] = pos[l + 1][j];
                         const line = el("line", { x1, y1, x2, y2, class: "nn-edge" }, gE);
-                        edges.push({ el: line, l, w: j * nIn + i, x1, y1, x2, y2, baseO: 0.05, baseW: 0.7 });
+                        edges.push({ el: line, l, w: j * nIn + i, x1, y1, x2, y2, baseO: 0.05, baseW: 0.5 });
                     }
                 }
             }
@@ -314,7 +314,7 @@
                 const ed = edges[e];
                 const r = Math.abs(net.W[ed.l][ed.w]) / maxAbs[ed.l];
                 ed.baseO = 0.04 + r * 0.30;
-                ed.baseW = 0.6 + r * 1.3;
+                ed.baseW = 0.45 + r * 0.95;
                 if (!hot.has(e)) {
                     ed.el.setAttribute("stroke-opacity", ed.baseO.toFixed(3));
                     ed.el.setAttribute("stroke-width", ed.baseW.toFixed(2));
@@ -403,7 +403,7 @@
                 } else {
                     ed.el.setAttribute("stroke", mix(h));
                     ed.el.setAttribute("stroke-opacity", Math.min(1, ed.baseO + h * 0.85).toFixed(3));
-                    ed.el.setAttribute("stroke-width", (ed.baseW + h * 1.7).toFixed(2));
+                    ed.el.setAttribute("stroke-width", (ed.baseW + h * 1.3).toFixed(2));
                 }
             }
             /* sparks ride burning edges; pulses ride the forward wave */
