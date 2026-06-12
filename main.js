@@ -1596,7 +1596,7 @@ void main(){
             violet: [110, 116.54, 130.81, 138.59, 155.56, 164.81, 220, 233.08],
         };
         const WAVES = { green: "triangle", cyan: "sine", amber: "square", violet: "sawtooth" };
-        const TEMPO = { green: 280, cyan: 300, amber: 250, violet: 380 };
+        const TEMPO = { green: 280, cyan: 700, amber: 250, violet: 380 };
         const theme = () => root.dataset.theme || "green";
 
         const start = () => {
@@ -1631,12 +1631,46 @@ void main(){
             if (ctx) ctx.suspend();
         };
 
+        /* cyan: church-organ swell — stacked sine partials, slow attack, long tail */
+        const swell = (freq, dur, vol) => {
+            if (!ctx || !on) return;
+            const t = ctx.currentTime;
+            [[1, 1], [2, 0.45], [3, 0.16]].forEach(([h, hv]) => {
+                const o = ctx.createOscillator();
+                o.type = "sine"; o.frequency.value = freq * h;
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vol * hv, t + dur * 0.35);
+                g.gain.setTargetAtTime(0, t + dur * 0.6, dur * 0.18);
+                o.connect(g); g.connect(master); g.connect(delay);
+                o.start(t); o.stop(t + dur * 1.8);
+            });
+        };
+
+        /* Am - F - C - G, voiced low like an organ pedal manual */
+        const COSMIC_CHORDS = [
+            [110, 130.81, 164.81], [87.31, 110, 130.81],
+            [98, 130.81, 164.81], [98, 123.47, 146.83],
+        ];
+        /* the patient ostinato: A/E alternation that climbs and falls back */
+        const OSTINATO = [440, 659.25, 440, 659.25, 523.25, 659.25, 880, 659.25];
+
         const startSeq = () => {
             stopSeq();
             seqTimer = setInterval(() => {
                 if (document.hidden) return;
-                const sc = SCALES[theme()];
                 step++;
+                if (theme() === "cyan") {
+                    /* ambient cosmic: long overlapping organ chords under a steady,
+                       quiet two-note pulse — vast, slow, Interstellar-adjacent */
+                    if (step % 10 === 0) {
+                        const ch = COSMIC_CHORDS[((step / 10) | 0) % COSMIC_CHORDS.length];
+                        ch.forEach((f, i) => swell(f, 9, 0.026 - i * 0.005));
+                    }
+                    if (step % 2 === 0) swell(OSTINATO[((step / 2) | 0) % OSTINATO.length], 1.7, 0.013);
+                    return;
+                }
+                const sc = SCALES[theme()];
                 const roll = Math.random();
                 if ((step % 2 === 0 && roll < 0.5) || roll < 0.12) {
                     noteIdx = Math.max(0, Math.min(sc.length - 1, noteIdx + [(-2), -1, -1, 1, 1, 2, 3][(Math.random() * 7) | 0]));
@@ -1689,9 +1723,13 @@ void main(){
         const retune = () => {
             if (!ctx || !on) return;
             const t = theme();
-            const base = { green: [55, 55.6], cyan: [55, 55.4], amber: [50, 100.3], violet: [49, 49.45] }[t];
+            /* cyan: pure A pedal an octave apart, barely beating — organ, not engine */
+            const base = { green: [55, 55.6], cyan: [55, 110.15], amber: [50, 100.3], violet: [49, 49.45] }[t];
             drone.forEach((o, i) => o.frequency.setTargetAtTime(base[i], ctx.currentTime, 1.2));
-            droneFilter.frequency.setTargetAtTime(t === "violet" ? 110 : t === "amber" ? 210 : 160, ctx.currentTime, 1);
+            droneFilter.frequency.setTargetAtTime(t === "violet" ? 110 : t === "amber" ? 210 : t === "cyan" ? 130 : 160, ctx.currentTime, 1);
+            /* cyan gets a longer, wetter echo: the room is a lot bigger out there */
+            delay.delayTime.setTargetAtTime(t === "cyan" ? 0.52 : 0.27, ctx.currentTime, 0.8);
+            fbGain.gain.setTargetAtTime(t === "cyan" ? 0.52 : 0.36, ctx.currentTime, 0.8);
             startSeq();
         };
 
