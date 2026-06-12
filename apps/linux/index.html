@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green" data-font="sharp">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VM-86 — LINUX IN YOUR TAB · zdanowicz.dev</title>
+    <meta name="description" content="A real Linux 6.8 kernel booting inside an x86 emulator written in JavaScript. No server, no container — your tab is the machine.">
+    <meta name="theme-color" content="#050807">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050807'/%3E%3Cpath d='M16 5 L27 16 L16 27 L5 16 Z' fill='none' stroke='%233df58c' stroke-width='2.5'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .vm-wrap { display: flex; flex-direction: column; gap: 0; }
+        .vm-bar {
+            display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+            padding: 10px 14px; border: 1px solid var(--line-bright); border-bottom: 0;
+            font-size: 11px; letter-spacing: .14em; color: var(--dim);
+            background: var(--bg-panel);
+        }
+        .vm-bar b { color: var(--accent); font-weight: 600; }
+        .vm-bar .vm-stat { display: inline-flex; align-items: center; gap: 7px; }
+        .vm-bar .vm-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: pulse 1.2s ease infinite; }
+        .vm-bar .vm-dot.on { background: var(--accent); }
+        .vm-bar button {
+            margin-left: auto; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+            background: transparent; color: var(--accent); border: 1px solid var(--line-bright);
+            padding: 3px 10px; cursor: pointer;
+        }
+        .vm-bar button:hover { background: var(--accent); color: var(--bg); }
+        .vm-bar button + button { margin-left: 0; }
+        #term {
+            height: min(62vh, 560px); overflow-y: auto;
+            border: 1px solid var(--line-bright);
+            background: #02030a; padding: 14px 16px;
+            font-family: var(--font-mono); font-size: 13px; line-height: 1.45;
+            white-space: pre-wrap; word-break: break-all;
+            color: var(--text); cursor: text;
+        }
+        #term .cur { background: var(--accent); color: var(--bg); }
+        #term:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+        .vm-hints { margin-top: 12px; font-size: 11px; letter-spacing: .1em; color: var(--dim); line-height: 1.9; }
+        .vm-hints code { color: var(--accent); }
+        #mobileIn { position: fixed; opacity: 0; left: -9999px; top: 0; height: 1px; width: 1px; }
+        @media (max-width: 600px) { #term { font-size: 12px; height: 56vh; } }
+    </style>
+</head>
+<body>
+
+    <div class="grid-bg" aria-hidden="true"></div>
+
+    <header class="statusbar">
+        <a class="brand" href="../../">ZDANOWICZ.DEV<span class="caret">▮</span></a>
+        <nav class="topnav" aria-label="Up"><a href="../">cd ~/apps</a></nav>
+        <div class="sysmeta">
+            <span class="online"><i class="dot"></i>EMU:x86</span>
+            <span class="clock" id="clock">--:--:--</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="section" style="padding-top: 120px;">
+            <div class="seclabel"><b>VM-86</b>LINUX — A REAL KERNEL, EMULATED IN JAVASCRIPT<i class="rule"></i></div>
+
+            <p class="apps-head">this is not a mock. an x86 machine (<b>v86</b>, wasm) boots
+            <b>linux 6.8.12</b> + busybox from a 10MB image, serial console attached below.
+            your tab is the hardware. nothing touches a server.</p>
+
+            <div class="vm-wrap">
+                <div class="vm-bar">
+                    <span class="vm-stat"><i class="vm-dot" id="vmDot"></i><b id="vmState">POWERING ON…</b></span>
+                    <span>KERNEL <b>6.8.12</b></span>
+                    <span>ARCH <b>i686</b></span>
+                    <span id="vmBytes">IMG 0%</span>
+                    <button id="ctrlC" title="Send SIGINT">CTRL+C</button>
+                    <button id="vmReset">RESET</button>
+                </div>
+                <div id="term" tabindex="0" aria-label="Linux serial console"></div>
+            </div>
+            <input id="mobileIn" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-hidden="true">
+
+            <p class="vm-hints">
+                TRY: <code>uname -a</code> · <code>cat /proc/cpuinfo</code> · <code>ls /</code> ·
+                <code>echo $((6*7))</code> · <code>head -2 /proc/meminfo</code> · <code>dmesg | tail</code><br>
+                LINE CONSOLE: shell, pipes and scripts work — full-screen apps (vi, top) render imperfectly.
+                TAP THE TERMINAL TO TYPE ON MOBILE.
+            </p>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <span>ZDANOWICZ.DEV © 2026</span>
+        <span>VM-86 · POWERED BY v86 (BSD-2) · KERNEL IMAGE: BUILDROOT</span>
+    </footer>
+
+    <script src="../../vendor/v86/libv86.js"></script>
+    <script>
+    (() => {
+        "use strict";
+        const $ = (s) => document.querySelector(s);
+
+        const clock = $("#clock");
+        const tickC = () => (clock.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false }));
+        tickC(); setInterval(tickC, 1000);
+
+        /* ---- minimal ANSI line-terminal: lines[] + cursor, CSI subset ------- */
+
+        const term = $("#term");
+        const MAXLINES = 600;
+        let lines = [""], row = 0, col = 0;
+        let esc = null;            // collecting escape sequence
+        let homed = false;         // saw CSI H — next J clears all
+        let dirty = false;
+
+        const putc = (ch) => {
+            const line = lines[row];
+            lines[row] = col >= line.length
+                ? line + " ".repeat(col - line.length) + ch
+                : line.slice(0, col) + ch + line.slice(col + 1);
+            col++;
+        };
+
+        const feed = (ch) => {
+            if (esc !== null) {
+                esc += ch;
+                if (esc[0] === "[") {
+                    if (!/[a-zA-Z]$/.test(ch)) { if (esc.length > 16) esc = null; return; }
+                    const fin = ch, body = esc.slice(1, -1).replace("?", "");
+                    const n = parseInt(body, 10) || 0;
+                    if (fin === "K") {
+                        if (n === 2) lines[row] = "";
+                        else if (n === 1) lines[row] = " ".repeat(col) + lines[row].slice(col);
+                        else lines[row] = lines[row].slice(0, col);
+                    } else if (fin === "J") {
+                        if (homed || n >= 2) { lines = [""]; row = 0; col = 0; }
+                        else lines = lines.slice(0, row + 1);
+                    } else if (fin === "H" || fin === "f") { homed = true; col = 0; esc = null; return; }
+                    else if (fin === "C") col += Math.max(1, n);
+                    else if (fin === "D") col = Math.max(0, col - Math.max(1, n));
+                    /* m (colors), A/B and the rest: ignored — line console */
+                    esc = null; homed = false;
+                    return;
+                }
+                if (esc[0] === "]") {            /* OSC: consume until BEL */
+                    if (ch === "\x07") esc = null;
+                    else if (esc.length > 64) esc = null;
+                    return;
+                }
+                esc = null;                       /* ESC( etc: swallow one char */
+                return;
+            }
+            const c = ch.charCodeAt(0);
+            if (c === 27) { esc = ""; return; }
+            if (ch === "\n") {
+                row++;
+                if (row >= lines.length) lines.push("");
+                if (lines.length > MAXLINES) { const cut = lines.length - MAXLINES; lines = lines.slice(cut); row -= cut; }
+                return;
+            }
+            if (ch === "\r") { col = 0; return; }
+            if (c === 8) { col = Math.max(0, col - 1); return; }
+            if (ch === "\t") { col += 8 - (col % 8); return; }
+            if (c === 7 || c < 32) return;
+            homed = false;
+            putc(ch);
+        };
+
+        const escHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        const render = () => {
+            const out = lines.map((l, i) => {
+                if (i !== row) return escHtml(l);
+                const pad = col > l.length ? l + " ".repeat(col - l.length) : l;
+                return escHtml(pad.slice(0, col)) +
+                    `<span class="cur">${escHtml(pad[col] || " ")}</span>` +
+                    escHtml(pad.slice(col + 1));
+            }).join("\n");
+            term.innerHTML = out;
+            term.scrollTop = term.scrollHeight;
+        };
+
+        let pendingBytes = [];
+        const pump = () => {
+            requestAnimationFrame(pump);
+            if (!pendingBytes.length) return;
+            const batch = pendingBytes;
+            pendingBytes = [];
+            for (let i = 0; i < batch.length; i++) feed(String.fromCharCode(batch[i]));
+            render();
+        };
+        requestAnimationFrame(pump);
+
+        /* ---- the machine ----------------------------------------------------- */
+
+        const state = $("#vmState"), dot = $("#vmDot"), bytesEl = $("#vmBytes");
+        let booted = false, buf = "";
+
+        const emulator = new V86({
+            wasm_path: "../../vendor/v86/v86.wasm",
+            memory_size: 128 * 1024 * 1024,
+            bios: { url: "../../vendor/v86/seabios.bin" },
+            vga_bios: { url: "../../vendor/v86/vgabios.bin" },
+            bzimage: { url: "../../vendor/v86/buildroot-bzimage68.bin", async: false },
+            filesystem: {},
+            cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+            autostart: true,
+            disable_keyboard: true,
+        });
+
+        emulator.add_listener("download-progress", (e) => {
+            if (e.total) bytesEl.textContent = `IMG ${Math.round(e.loaded / e.total * 100)}%`;
+        });
+        emulator.add_listener("emulator-started", () => {
+            state.textContent = "BOOTING KERNEL…";
+            bytesEl.textContent = "IMG 100%";
+        });
+        emulator.add_listener("serial0-output-byte", (byte) => {
+            pendingBytes.push(byte);
+            if (!booted) {
+                buf += String.fromCharCode(byte);
+                if (buf.length > 64) buf = buf.slice(-64);
+                if (buf.endsWith("~% ")) {
+                    booted = true;
+                    state.textContent = "ONLINE — TYPE HERE";
+                    dot.classList.add("on");
+                }
+            }
+        });
+
+        /* ---- keyboard -> serial ------------------------------------------------ */
+
+        const send = (s) => emulator.serial0_send(s);
+
+        const KEYS = {
+            Enter: "\r", Backspace: "\x7f", Tab: "\t", Escape: "\x1b",
+            ArrowUp: "\x1b[A", ArrowDown: "\x1b[B", ArrowRight: "\x1b[C", ArrowLeft: "\x1b[D",
+            Home: "\x1b[H", End: "\x1b[F", Delete: "\x1b[3~",
+        };
+
+        const onKey = (e) => {
+            if (e.metaKey) return;                          /* keep ⌘K & friends */
+            if (e.ctrlKey) {
+                const k = e.key.toLowerCase();
+                if (k === "c" && getSelection().toString()) return;   /* allow copy */
+                if (k.length === 1 && k >= "a" && k <= "z") {
+                    send(String.fromCharCode(k.charCodeAt(0) - 96));
+                    e.preventDefault();
+                }
+                return;
+            }
+            if (KEYS[e.key]) { send(KEYS[e.key]); e.preventDefault(); return; }
+            if (e.key.length === 1) { send(e.key); e.preventDefault(); }
+        };
+        term.addEventListener("keydown", onKey);
+
+        /* mobile: focus a hidden input so the keyboard pops; route its events */
+        const mIn = $("#mobileIn");
+        term.addEventListener("click", () => {
+            if (matchMedia("(pointer: coarse)").matches) mIn.focus();
+            else term.focus();
+        });
+        mIn.addEventListener("input", () => {
+            if (mIn.value) { send(mIn.value); mIn.value = ""; }
+        });
+        mIn.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") { send("\r"); e.preventDefault(); }
+            if (e.key === "Backspace") { send("\x7f"); e.preventDefault(); }
+        });
+
+        term.addEventListener("paste", (e) => {
+            e.preventDefault();
+            send(e.clipboardData.getData("text"));
+        });
+
+        $("#ctrlC").addEventListener("click", () => send("\x03"));
+        $("#vmReset").addEventListener("click", () => {
+            lines = [""]; row = 0; col = 0; booted = false; buf = "";
+            state.textContent = "REBOOTING…";
+            dot.classList.remove("on");
+            render();
+            emulator.restart();
+        });
+
+        term.focus();
+    })();
+    </script>
+</body>
+</html>

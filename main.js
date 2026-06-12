@@ -1384,6 +1384,7 @@ void main(){
         { k: "neural lab", d: "NN-31 — engine, tests, live training", run: () => (location.href = "apps/neural/") },
         { k: "neural toggle", d: "show/hide the visitor model", run: () => window.Mind && window.Mind.toggle() },
         { k: "chat", d: "KZ·MIND — on-device language model", run: () => window.Chat && window.Chat.open() },
+        { k: "linux", d: "VM-86 — boot linux 6.8 in your tab", run: () => (location.href = "apps/linux/") },
         { k: "ghost toggle", d: "the cursor that predicts your cursor", run: () => window.Ghost && window.Ghost.toggle() },
         { k: "legacy", d: "flash the 2019 site palette", run: legacy },
         { k: "whoami", d: "you know who you are", run: goto("#subject") },
