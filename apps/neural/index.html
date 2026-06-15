@@ -33,6 +33,29 @@
         #netSvg .nn-lab { fill: var(--dim); font-family: var(--font-mono); font-size: 9px; }
         .lab-read { margin-top: 14px; display: flex; gap: 26px; flex-wrap: wrap; font-size: 11px; letter-spacing: .14em; color: var(--dim); }
         .lab-read b { color: var(--accent); font-weight: 600; }
+
+        /* ---- generative neural image field ---- */
+        .gen-panel { margin-top: 18px; }
+        .gen-wrap { display: grid; grid-template-columns: auto auto 1fr; gap: 20px; align-items: start; }
+        @media (max-width: 820px) { .gen-wrap { grid-template-columns: 1fr; } }
+        #genCanvas { width: 256px; height: 256px; image-rendering: pixelated; border: 1px solid var(--line); background: var(--bg); flex-shrink: 0; }
+        .gen-ascii {
+            margin: 0; font-family: var(--font-mono); white-space: pre; overflow: hidden;
+            font-size: 7px; line-height: 6px; letter-spacing: 0; color: var(--accent);
+            background: var(--bg); border: 1px solid var(--line); padding: 7px 9px;
+            text-shadow: 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
+            box-sizing: border-box;
+        }
+        .gen-col { display: flex; flex-direction: column; gap: 10px; }
+        .gen-cap { font-size: 9px; letter-spacing: .18em; color: var(--dim); }
+        .gen-latents { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+        .gen-latents label { font-size: 9px; letter-spacing: .14em; color: var(--dim); display: flex; flex-direction: column; gap: 5px; }
+        .gen-latents input[type=range] { width: 116px; accent-color: var(--accent); background: transparent; }
+        .gen-hint { display: none; }
+        .gen-panel.learn .gen-hint.learn,
+        .gen-panel.dream .gen-hint.dream { display: inline; }
+        .gen-panel.dream .gen-only-learn,
+        .gen-panel.learn .gen-only-dream { display: none; }
     </style>
 </head>
 <body>
@@ -90,6 +113,62 @@
                     </div>
                 </article>
             </div>
+
+            <article class="panel lab-panel gen-panel dream" id="genPanel">
+                <div class="panel-inner">
+                    <h3>GEN-1 · NEURAL IMAGE FIELD</h3>
+                    <p class="apps-head" style="margin-bottom:16px;">a coordinate→intensity MLP: feed it <b>(x,y)</b> and it paints that pixel.
+                    random weights → a <b>CPPN</b> dream; or train it by gradient descent to <em>become</em> a target —
+                    an <b>implicit neural representation</b>, sampled live to pixels and ASCII.</p>
+
+                    <div class="lab-controls">
+                        <button class="btn on" id="mDream">DREAM</button>
+                        <button class="btn" id="mLearn">LEARN</button>
+                        <span style="flex-basis:100%;height:0;"></span>
+                        <button class="btn gen-only-dream" id="genSeed">⟳ NEW SEED</button>
+                        <button class="btn on gen-only-learn" data-target="diamond">DIAMOND</button>
+                        <button class="btn gen-only-learn" data-target="ring">RINGS</button>
+                        <button class="btn gen-only-learn" data-target="grid">GRID</button>
+                        <button class="btn gen-only-learn" data-target="wave">WAVE</button>
+                        <button class="btn gen-only-learn" id="genRun">▮▮ PAUSE</button>
+                        <button class="btn gen-only-learn" id="genReset">RESET</button>
+                        <button class="btn" id="genView">VIEW: BOTH</button>
+                    </div>
+
+                    <div class="gen-wrap">
+                        <div class="gen-col" id="genCanvasCol">
+                            <span class="gen-cap">PIXELS · 84²</span>
+                            <canvas id="genCanvas" width="84" height="84"></canvas>
+                        </div>
+                        <div class="gen-col" id="genAsciiCol">
+                            <span class="gen-cap">ASCII · 96×40</span>
+                            <pre class="gen-ascii" id="genAscii" aria-label="ASCII render"></pre>
+                        </div>
+                        <div class="gen-col">
+                            <span class="gen-cap gen-only-dream">LATENT z &amp; COMPLEXITY</span>
+                            <span class="gen-cap gen-only-learn">TRAINING</span>
+                            <div class="gen-latents gen-only-dream" id="genLatents">
+                                <label>z₀<input type="range" id="z0" min="-2" max="2" step="0.01" value="0.4"></label>
+                                <label>z₁<input type="range" id="z1" min="-2" max="2" step="0.01" value="-0.7"></label>
+                                <label>z₂<input type="range" id="z2" min="-2" max="2" step="0.01" value="0.2"></label>
+                                <label>SCALE<input type="range" id="zScale" min="0.6" max="3.2" step="0.01" value="1.8"></label>
+                            </div>
+                            <div class="lab-controls gen-only-dream" style="margin:0;">
+                                <button class="btn" id="genMorph">⟲ MORPH</button>
+                            </div>
+                            <div class="lab-read">
+                                <span class="gen-hint dream">CPPN · random weights, no training — pure structure of the net</span>
+                                <span class="gen-hint learn">SGD fitting a target field — REAL GRADIENTS</span>
+                            </div>
+                            <div class="lab-read">
+                                <span>NET <b id="gNet">—</b></span>
+                                <span class="gen-only-learn">STEPS <b id="gSteps">0</b></span>
+                                <span class="gen-only-learn">LOSS <b id="gLoss">—</b></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
         </section>
     </main>
 
@@ -380,6 +459,186 @@
         });
 
         reset();
+        loop();
+    })();
+    </script>
+
+    <script>
+    /* ---- GEN-1: neural image field — a coordinate→intensity MLP ------------
+       DREAM: random-weight CPPN (Fourier-encoded coords) paints abstract art.
+       LEARN: gradient descent fits the same net to a target image — a tiny
+              implicit neural representation. Both sampled to pixels + ASCII.  */
+    (() => {
+        "use strict";
+        const $ = (s) => document.querySelector(s);
+        const panel = $("#genPanel");
+        const cv = $("#genCanvas"), ctx = cv.getContext("2d");
+        const pre = $("#genAscii");
+
+        const GW = 84, GH = 84;                 // field resolution (forward passes)
+        const AC = 96, AR = 40;                 // ASCII grid (cols × rows)
+        const RAMP = " .:-=+*#%@";              // dark → bright phosphor ramp
+        const FREQS = [1, 2, 4, 7];             // Fourier positional-encoding bands
+        const ZN = 3;                           // latent dimensions
+        const FEAT = 3 + FREQS.length * 4 + ZN; // coord features + latent
+        const HIDDEN = [28, 28, 20];            // field MLP hidden layers
+
+        const fbuf = new Float32Array(FEAT);
+        const field = new Float32Array(GW * GH);
+        const Z = new Float32Array(ZN);
+        let net = null, mode = "dream", seed = 7, scale = 1.8;
+        let target = "diamond", running = true, morph = false, view = 2; // 0 px,1 ascii,2 both
+        let frame = 0;
+
+        const accent = () => {
+            const c = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+            return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+        };
+
+        /* (x,y) → Fourier features + radius + latent z */
+        const feat = (x, y, out) => {
+            let k = 0;
+            out[k++] = x; out[k++] = y;
+            out[k++] = Math.sqrt(x * x + y * y) * 1.414 - 1;
+            for (let q = 0; q < FREQS.length; q++) {
+                const f = Math.PI * FREQS[q];
+                out[k++] = Math.sin(f * x); out[k++] = Math.cos(f * x);
+                out[k++] = Math.sin(f * y); out[k++] = Math.cos(f * y);
+            }
+            for (let i = 0; i < ZN; i++) out[k++] = Z[i];
+            return out;
+        };
+
+        /* target fields for LEARN mode, all returning intensity in [0,1] */
+        const TARGETS = {
+            diamond: (x, y) => { const d = Math.abs(x) + Math.abs(y); return d < 0.72 ? 1 - d * 0.5 : Math.max(0, 0.18 - (d - 0.72) * 1.6); },
+            ring:    (x, y) => { const r = Math.sqrt(x * x + y * y); return 0.5 + 0.5 * Math.cos((r - 0.15) * 11); },
+            grid:    (x, y) => 0.5 + 0.5 * Math.sin(x * 8) * Math.sin(y * 8),
+            wave:    (x, y) => 0.5 + 0.5 * Math.sin((x * 3 + Math.sin(y * 4) * 1.5) * Math.PI),
+        };
+
+        const makeNet = (forTraining) => {
+            net = new NN.Net([FEAT, ...HIDDEN, 1], {
+                hidden: "tanh", out: "sigmoid",
+                lr: 0.02, optimizer: "adam", seed: seed >>> 0,
+            });
+            if (!forTraining) {                 // CPPN: amplify weights for richer structure
+                for (const W of net.W) for (let i = 0; i < W.length; i++) W[i] *= scale;
+            }
+            $("#gNet").textContent = net.sizes.join("·");
+        };
+
+        const computeField = () => {
+            for (let r = 0; r < GH; r++) {
+                const y = (r / (GH - 1)) * 2 - 1;
+                for (let c = 0; c < GW; c++) {
+                    const x = (c / (GW - 1)) * 2 - 1;
+                    feat(x, y, fbuf);
+                    field[r * GW + c] = net.forward(fbuf)[0];
+                }
+            }
+        };
+
+        const renderCanvas = () => {
+            const img = ctx.createImageData(GW, GH);
+            const [ar, ag, ab] = accent();
+            for (let i = 0; i < GW * GH; i++) {
+                const p = field[i], o = i * 4;
+                img.data[o] = ar * p; img.data[o + 1] = ag * p; img.data[o + 2] = ab * p;
+                img.data[o + 3] = 255;
+            }
+            ctx.putImageData(img, 0, 0);
+        };
+
+        const renderAscii = () => {
+            let s = "";
+            for (let r = 0; r < AR; r++) {
+                const fy = Math.round((r / (AR - 1)) * (GH - 1));
+                for (let c = 0; c < AC; c++) {
+                    const fx = Math.round((c / (AC - 1)) * (GW - 1));
+                    let p = field[fy * GW + fx];
+                    p = p < 0 ? 0 : p > 1 ? 1 : p;
+                    s += RAMP[Math.min(RAMP.length - 1, (p * RAMP.length) | 0)];
+                }
+                s += "\n";
+            }
+            pre.textContent = s;
+        };
+
+        const render = () => {
+            computeField();
+            if (view !== 1) renderCanvas();
+            if (view !== 0) renderAscii();
+        };
+
+        /* one batch of SGD steps on random pixels of the target image */
+        const trainStep = () => {
+            const fn = TARGETS[target];
+            for (let k = 0; k < 220; k++) {
+                const x = Math.random() * 2 - 1, y = Math.random() * 2 - 1;
+                feat(x, y, fbuf);
+                net.train(fbuf, [fn(x, y)]);
+            }
+            $("#gSteps").textContent = net.steps.toLocaleString("en");
+            $("#gLoss").textContent = net.emaLoss < 0 ? "—" : net.emaLoss.toFixed(5);
+        };
+
+        const loop = () => {
+            requestAnimationFrame(loop);
+            if (document.hidden) return;
+            frame++;
+            if (mode === "learn") {
+                if (!running) return;
+                trainStep();
+                if (frame % 4 === 0) render();
+            } else if (morph) {
+                const t = frame * 0.012;
+                Z[0] = Math.sin(t) * 1.2; Z[1] = Math.cos(t * 0.7) * 1.2; Z[2] = Math.sin(t * 0.4) * 1.2;
+                if (frame % 3 === 0) render();
+            }
+        };
+
+        /* ---- controls ---- */
+        const setMode = (m) => {
+            mode = m;
+            panel.classList.toggle("dream", m === "dream");
+            panel.classList.toggle("learn", m === "learn");
+            $("#mDream").classList.toggle("on", m === "dream");
+            $("#mLearn").classList.toggle("on", m === "learn");
+            morph = false; $("#genMorph").classList.remove("on");
+            if (m === "dream") { makeNet(false); render(); }
+            else { running = true; $("#genRun").textContent = "▮▮ PAUSE"; makeNet(true); render(); }
+        };
+
+        $("#mDream").addEventListener("click", () => setMode("dream"));
+        $("#mLearn").addEventListener("click", () => setMode("learn"));
+
+        $("#genSeed").addEventListener("click", () => { seed = (Math.random() * 1e9) | 0; makeNet(false); render(); });
+        $("#genMorph").addEventListener("click", (e) => { morph = !morph; e.currentTarget.classList.toggle("on", morph); });
+
+        ["z0", "z1", "z2"].forEach((id, i) => $("#" + id).addEventListener("input", (e) => {
+            Z[i] = parseFloat(e.target.value); if (mode === "dream" && !morph) render();
+        }));
+        $("#zScale").addEventListener("input", (e) => { scale = parseFloat(e.target.value); if (mode === "dream") { makeNet(false); render(); } });
+
+        document.querySelectorAll("#genPanel [data-target]").forEach((b) => b.addEventListener("click", () => {
+            document.querySelectorAll("#genPanel [data-target]").forEach((x) => x.classList.remove("on"));
+            b.classList.add("on"); target = b.dataset.target; makeNet(true); render();
+        }));
+        $("#genRun").addEventListener("click", (e) => { running = !running; e.currentTarget.textContent = running ? "▮▮ PAUSE" : "▶ RUN"; });
+        $("#genReset").addEventListener("click", () => { makeNet(true); render(); });
+
+        const VIEWS = ["PIXELS", "ASCII", "BOTH"];
+        $("#genView").addEventListener("click", (e) => {
+            view = (view + 1) % 3;
+            e.currentTarget.textContent = "VIEW: " + VIEWS[view];
+            $("#genCanvasCol").style.display = view === 1 ? "none" : "";
+            $("#genAsciiCol").style.display = view === 0 ? "none" : "";
+            render();
+        });
+
+        for (let i = 0; i < ZN; i++) Z[i] = parseFloat($("#z" + i).value);
+        setMode("dream");
         loop();
     })();
     </script>

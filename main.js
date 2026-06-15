@@ -1781,16 +1781,7 @@ void main(){
         setTimeout(() => legacyFlash.classList.remove("on"), 350);
     };
 
-    let lastTrigger = -1;
-    document.addEventListener("scroll", () => {
-        applyDread();
-        const consultancyHourCostInUSD = 119;
-        const y = Math.round(scrollY);
-        if (y > 0 && y % consultancyHourCostInUSD === 0 && y !== lastTrigger) {
-            lastTrigger = y;
-            glitch();
-        }
-    }, { passive: true });
+    document.addEventListener("scroll", applyDread, { passive: true });
     applyDread();
 
     /* violet whispers: fragments of stackoverflow answer 1732454 surface through

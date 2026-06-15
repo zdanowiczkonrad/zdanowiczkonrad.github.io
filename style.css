@@ -81,7 +81,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
     opacity: calc(var(--nn-mix, 0) * .68);
     transition: opacity .3s linear;
 }
-.neural-bg .nn-edge { stroke: var(--accent); }
+.neural-bg .nn-edge { stroke: var(--accent); fill: none; stroke-linecap: round; }
 .neural-bg .nn-node { fill: var(--accent); }
 .neural-bg .nn-spark { fill: #ff5e10; }
 .neural-bg .nn-pulse { fill: var(--accent); }
@@ -195,6 +195,10 @@ html.crt-on .ghost-cursor { visibility: hidden; }
 }
 
 html.glitch main, html.glitch .statusbar, html.glitch .bottombar { filter: hue-rotate(140deg) saturate(2.2) contrast(1.1); }
+/* green/phosphor theme: no glitch filter */
+html[data-theme="green"].glitch main,
+html[data-theme="green"].glitch .statusbar,
+html[data-theme="green"].glitch .bottombar { filter: none; }
 
 .legacy-flash {
     position: fixed; inset: 0; z-index: 90; pointer-events: none;

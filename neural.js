@@ -241,7 +241,9 @@
         const NS = "http://www.w3.org/2000/svg";
         const FIRE = [255, 94, 16];
         let accent = [61, 245, 140];
-        let edges = [], nodeEls = [], outEls = [], heat = null, hot = new Set();
+        const TAU = Math.PI * 2;
+        let edges = [], nodes = [], nodeEls = [], outEls = [], built = false;
+        let hot = new Set(), hotN = new Set();      // edges / nodes currently blinking
         let sparks = [], pulses = [], gPulse = null;
         let W = 0, H = 0, raf = null, lastF = 0;
         let active = true;
@@ -262,43 +264,102 @@
             const gN = el("g", {}, svg);
             const gL = el("g", {}, svg);
             const sizes = net.sizes;
-            const xs = sizes.map((_, l) => W * (0.18 + 0.64 * l / (sizes.length - 1)));
-            const pos = sizes.map((n, l) => {
+            const last = sizes.length - 1;
+            const xs = sizes.map((_, l) => W * (0.18 + 0.64 * l / last));
+            const rnd = NN.xorshift((0x5EED + (W | 0) * 131 + (H | 0)) >>> 0);
+            /* each node carries a slow float: position = base + amp·sin(t·freq + phase) */
+            nodes = sizes.map((n, l) => {
                 const gap = Math.min(H * 0.74 / Math.max(1, n - 1), 56);
                 const y0 = H * 0.5 - gap * (n - 1) / 2;
-                return Array.from({ length: n }, (_, i) => [xs[l], y0 + i * gap]);
+                return Array.from({ length: n }, (_, i) => {
+                    const bx = xs[l], by = y0 + i * gap;
+                    return {
+                        bx, by, x: bx, y: by, el: null,
+                        ax: reduced ? 0 : 4 + rnd() * 8,
+                        ay: reduced ? 0 : 6 + rnd() * 11,
+                        fx: 0.00020 + rnd() * 0.00045,
+                        fy: 0.00024 + rnd() * 0.00050,
+                        px: rnd() * TAU, py: rnd() * TAU,
+                    };
+                });
             });
             edges = []; nodeEls = []; outEls = [];
-            for (let l = 0; l < sizes.length - 1; l++) {
+            for (let l = 0; l < last; l++) {
                 const nIn = sizes[l], nOut = sizes[l + 1];
                 for (let j = 0; j < nOut; j++) {
                     for (let i = 0; i < nIn; i++) {
-                        const [x1, y1] = pos[l][i], [x2, y2] = pos[l + 1][j];
-                        const line = el("line", { x1, y1, x2, y2, class: "nn-edge" }, gE);
-                        edges.push({ el: line, l, w: j * nIn + i, x1, y1, x2, y2, baseO: 0.05, baseW: 0.4 });
+                        const path = el("path", { class: "nn-edge", "stroke-opacity": 0.05, "stroke-width": 0.4 }, gE);
+                        const dir = ((i + j) & 1) ? 1 : -1;
+                        edges.push({
+                            el: path, l, w: j * nIn + i,
+                            src: nodes[l][i], dst: nodes[l + 1][j],
+                            curve: dir * (0.10 + rnd() * 0.10),       // first bend
+                            curve2: -dir * (0.10 + rnd() * 0.10),     // second bend, opposite → S
+                            x1: 0, y1: 0, x2: 0, y2: 0,
+                            c1x: 0, c1y: 0, c2x: 0, c2y: 0,
+                            baseO: 0.05, baseW: 0.4, heat: 0, wait: 0,
+                        });
                     }
                 }
             }
-            heat = new Float32Array(edges.length);
-            hot.clear(); sparks = []; pulses = [];
-            pos.forEach((layer, l) => {
-                nodeEls.push(layer.map(([x, y]) =>
-                    el("circle", { cx: x, cy: y, r: l === sizes.length - 1 ? 4.5 : 3.2, class: "nn-node", "fill-opacity": 0.3 }, gN)));
+            hot.clear(); hotN.clear(); sparks = []; pulses = [];
+            nodes.forEach((layer, l) => {
+                const r0 = l === last ? 4.5 : 3.2;
+                nodeEls.push(layer.map((nd) => {
+                    nd.r0 = r0; nd.r = r0; nd.strength = 0;
+                    nd.heat = 0; nd.wait = 0; nd.baseFill = 0.3;
+                    return (nd.el = el("circle", { cx: nd.bx, cy: nd.by, r: r0, class: "nn-node", "fill-opacity": 0.3 }, gN));
+                }));
             });
             IN_LABELS.forEach((t, i) => {
-                el("text", { x: pos[0][i][0] - 10, y: pos[0][i][1] + 3, "text-anchor": "end", class: "nn-lab" }, gL).textContent = t;
+                el("text", { x: nodes[0][i].bx - 10, y: nodes[0][i].by + 3, "text-anchor": "end", class: "nn-lab" }, gL).textContent = t;
             });
             TARGETS.forEach((t, i) => {
-                const nx = pos[sizes.length - 1][i][0] + 12;
+                const nx = nodes[last][i].bx + 12;
                 const attrs = nx > W - 92
                     ? { x: W - 8, "text-anchor": "end" }      // narrow screens: pin to edge
                     : { x: nx };
-                attrs.y = pos[sizes.length - 1][i][1] + 3;
+                attrs.y = nodes[last][i].by + 3;
                 attrs.class = "nn-lab nn-out";
                 outEls.push(el("text", attrs, gL));
                 outEls[i].textContent = t;
             });
+            geom(0);
             restyle(net);
+            built = true;
+        };
+
+        /* advance node floats to time `time`, then re-curve every edge to match */
+        const geom = (time) => {
+            for (let l = 0; l < nodes.length; l++) {
+                const layer = nodes[l];
+                for (let i = 0; i < layer.length; i++) {
+                    const nd = layer[i];
+                    nd.x = nd.bx + nd.ax * Math.sin(time * nd.fx + nd.px);
+                    nd.y = nd.by + nd.ay * Math.sin(time * nd.fy + nd.py);
+                    if (nd.el) { nd.el.setAttribute("cx", nd.x.toFixed(1)); nd.el.setAttribute("cy", nd.y.toFixed(1)); }
+                }
+            }
+            for (let e = 0; e < edges.length; e++) {
+                const ed = edges[e];
+                const x1 = ed.src.x, y1 = ed.src.y, x2 = ed.dst.x, y2 = ed.dst.y;
+                const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+                const nx = -dy / len, ny = dx / len;        // perpendicular unit
+                const o1 = ed.curve * len, o2 = ed.curve2 * len;
+                const c1x = x1 + dx / 3 + nx * o1, c1y = y1 + dy / 3 + ny * o1;     // bend at 1/3
+                const c2x = x1 + 2 * dx / 3 + nx * o2, c2y = y1 + 2 * dy / 3 + ny * o2; // bend at 2/3
+                ed.x1 = x1; ed.y1 = y1; ed.x2 = x2; ed.y2 = y2;
+                ed.c1x = c1x; ed.c1y = c1y; ed.c2x = c2x; ed.c2y = c2y;
+                ed.el.setAttribute("d",
+                    `M${x1.toFixed(1)} ${y1.toFixed(1)}C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`);
+            }
+        };
+
+        /* point at parameter t along an edge's cubic curve */
+        const edgePoint = (ed, t) => {
+            const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+            return [a * ed.x1 + b * ed.c1x + c * ed.c2x + d * ed.x2,
+                    a * ed.y1 + b * ed.c1y + c * ed.c2y + d * ed.y2];
         };
 
         /* base stroke from |w| — called after weights move */
@@ -320,12 +381,33 @@
                     ed.el.setAttribute("stroke-width", ed.baseW.toFixed(2));
                 }
             }
+            /* node size ∝ total weight on its connections (normalized within its layer) */
+            for (let l = 0; l < nodes.length; l++) for (const nd of nodes[l]) nd.strength = 0;
+            for (let e = 0; e < edges.length; e++) {
+                const ed = edges[e], a = Math.abs(net.W[ed.l][ed.w]);
+                ed.src.strength += a; ed.dst.strength += a;
+            }
+            for (let l = 0; l < nodes.length; l++) {
+                let mx = 1e-6;
+                for (const nd of nodes[l]) if (nd.strength > mx) mx = nd.strength;
+                for (const nd of nodes[l]) {
+                    nd.r = nd.r0 * (0.7 + 1.6 * (nd.strength / mx));
+                    if (nd.el) nd.el.setAttribute("r", nd.r.toFixed(2));
+                }
+            }
         };
 
-        /* burn the paths whose weights just changed the most */
+        const blinkNode = (nd, wait, amt) => {
+            nd.wait = wait;
+            nd.heat = Math.min(0.75, nd.heat + amt);
+            hotN.add(nd);
+        };
+
+        /* a wave-like blink: only the few most-changed lines light, staggered by
+           depth so it sweeps left→right, and each lights its endpoint nodes too */
         const burn = (net) => {
-            if (reduced || !heat) return;
-            const tops = [];
+            if (reduced || !built) return;
+            const cand = [];
             for (let l = 0; l < net.L; l++) {
                 const mag = net.dWmag[l];
                 let m = 1e-9;
@@ -333,26 +415,31 @@
                 for (let e = 0; e < edges.length; e++) {
                     if (edges[e].l !== l) continue;
                     const r = mag[edges[e].w] / m;
-                    if (r > 0.42) {
-                        heat[e] = Math.min(1, heat[e] + r * 0.9);
-                        hot.add(e);
-                        if (r > 0.8) tops.push(e);
-                    }
+                    if (r > 0.62) cand.push({ e, l, r });     // higher bar → single lines, not a sheet
                 }
             }
-            for (let k = 0; k < Math.min(5, tops.length); k++) {
-                sparks.push({ e: tops[(Math.random() * tops.length) | 0], t: 0 });
+            cand.sort((a, b) => b.r - a.r);
+            const N = Math.min(5, cand.length);               // a handful, not all
+            for (let k = 0; k < N; k++) {
+                const { e, l, r } = cand[k], ed = edges[e];
+                ed.wait = l * 0.12;                           // deeper layers blink later → wave
+                ed.heat = Math.min(0.7, ed.heat + r * 0.5);   // gentle
+                hot.add(e);
+                blinkNode(ed.src, l * 0.12, r * 0.5);
+                blinkNode(ed.dst, l * 0.12 + 0.06, r * 0.5);  // node lights as the wave arrives
             }
+            if (N) sparks.push({ e: cand[0].e, t: 0 });       // one rider, not five
             wake();
         };
 
         /* forward wave: pulses run the strongest routes, neurons glow */
         const flow = (net) => {
             for (let l = 0; l < net.sizes.length; l++) {
-                const acts = net.a[l], els = nodeEls[l];
-                for (let i = 0; i < els.length; i++) {
-                    const a = Math.abs(acts[i]);
-                    els[i].setAttribute("fill-opacity", (0.18 + Math.min(1, a) * 0.7).toFixed(2));
+                const acts = net.a[l], layer = nodes[l];
+                for (let i = 0; i < layer.length; i++) {
+                    const nd = layer[i];
+                    nd.baseFill = 0.18 + Math.min(1, Math.abs(acts[i])) * 0.6;
+                    if (!hotN.has(nd)) nd.el.setAttribute("fill-opacity", nd.baseFill.toFixed(2));
                 }
             }
             const out = net.a[net.L];
@@ -391,19 +478,32 @@
             if (document.hidden) { wake(); return; }
             const dt = Math.min(0.1, (t - lastF) / 1000) || 0.016;
             lastF = t;
-            /* cool the burns */
+            if (!reduced) geom(t);          /* drift the nodes, reflow the curves */
+            /* cool the line blinks (a held wait-delay makes them ripple in sequence) */
             for (const e of hot) {
-                const h = (heat[e] -= dt * 1.7);
                 const ed = edges[e];
-                if (h <= 0.04) {
-                    heat[e] = 0; hot.delete(e);
+                if (ed.wait > 0) { ed.wait -= dt; continue; }
+                const h = (ed.heat -= dt * 2.2);
+                if (h <= 0.03) {
+                    ed.heat = 0; hot.delete(e);
                     ed.el.removeAttribute("stroke");
                     ed.el.setAttribute("stroke-opacity", ed.baseO.toFixed(3));
                     ed.el.setAttribute("stroke-width", ed.baseW.toFixed(2));
                 } else {
-                    ed.el.setAttribute("stroke", mix(h));
-                    ed.el.setAttribute("stroke-opacity", Math.min(1, ed.baseO + h * 0.85).toFixed(3));
-                    ed.el.setAttribute("stroke-width", (ed.baseW + h * 1.3).toFixed(2));
+                    ed.el.setAttribute("stroke", mix(h * 0.55));      // barely tints toward fire
+                    ed.el.setAttribute("stroke-opacity", Math.min(1, ed.baseO + h * 0.45).toFixed(3));
+                    ed.el.setAttribute("stroke-width", (ed.baseW + h * 0.6).toFixed(2));
+                }
+            }
+            /* cool the node blinks */
+            for (const nd of hotN) {
+                if (nd.wait > 0) { nd.wait -= dt; continue; }
+                const h = (nd.heat -= dt * 2.4);
+                if (h <= 0.03) {
+                    nd.heat = 0; hotN.delete(nd);
+                    nd.el.setAttribute("fill-opacity", nd.baseFill.toFixed(2));
+                } else {
+                    nd.el.setAttribute("fill-opacity", Math.min(1, nd.baseFill + h * 0.55).toFixed(2));
                 }
             }
             /* sparks ride burning edges; pulses ride the forward wave */
@@ -418,15 +518,16 @@
                     }
                     if (p.t < 0) continue;
                     if (!p.el) p.el = el("circle", { r: rr, class: cls }, gPulse);
-                    const ed = edges[p.e];
-                    p.el.setAttribute("cx", (ed.x1 + (ed.x2 - ed.x1) * p.t).toFixed(1));
-                    p.el.setAttribute("cy", (ed.y1 + (ed.y2 - ed.y1) * p.t).toFixed(1));
+                    const [px, py] = edgePoint(edges[p.e], p.t);
+                    p.el.setAttribute("cx", px.toFixed(1));
+                    p.el.setAttribute("cy", py.toFixed(1));
                     p.el.setAttribute("opacity", (1 - p.t * 0.6).toFixed(2));
                 }
             };
             move(sparks, 2.6, "nn-spark", 2.2);
             move(pulses, 1.8, "nn-pulse", 1.8);
-            if (hot.size || sparks.length || pulses.length) wake();
+            /* keep the loop alive for the float; bail to idle only under reduced-motion */
+            if (!reduced || hot.size || hotN.size || sparks.length || pulses.length) wake();
         };
 
         const wake = () => { if (!raf && active) raf = requestAnimationFrame(frame); };
