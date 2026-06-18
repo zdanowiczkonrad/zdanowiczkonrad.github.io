@@ -198,7 +198,10 @@
 
     /* ---- career telemetry graph (responsive, JS-built) ------------------------------ */
 
-    const SIGNAL_MILESTONES = [[2009, 0], [2016, .38], [2020, .64], [2022, .84], [2026, 1]];
+    const SIGNAL_MILESTONES = [
+        [2009, 0, "Field work"], [2013, .2, "Nokia"], [2016, .42, "Tipser · offshore"],
+        [2020, .66, "Bolt"], [2025, .9, "Ingrid"], [2026, 1, "Now"],
+    ];
     const SIGNAL_Y0 = 2009, SIGNAL_Y1 = 2026;
     const signalSvg = $("#signalSvg");
 
@@ -267,9 +270,10 @@
 
         const axes = [bottom, (top + bottom) / 2, top].map((y, i) =>
             `<line x1="0" y1="${y}" x2="${W}" y2="${y}" class="axis${i ? " faint" : ""}"/>`).join("");
-        const nodes = SIGNAL_MILESTONES.map(([yr, p], i) => {
+        const nodes = SIGNAL_MILESTONES.map(([yr, p, label], i) => {
             const last = i === SIGNAL_MILESTONES.length - 1;
-            return `<circle cx="${X(yr)}" cy="${Y(p)}" r="${last ? 5 : 4}"${last ? ' class="live"' : ""}/>`;
+            const title = label ? `<title>${label} · ${yr}</title>` : "";
+            return `<circle cx="${X(yr)}" cy="${Y(p)}" r="${last ? 5 : 4}"${last ? ' class="live"' : ""}>${title}</circle>`;
         }).join("");
         let prevTickX = -Infinity;
         const ticks = SIGNAL_MILESTONES.map(([yr], i) => {
@@ -406,146 +410,9 @@
         career.addEventListener("mouseleave", () => career.style.setProperty("--glow-o", "0"));
     }
 
-    /* ---- bio-scan: sharpened image + edge contours on hover ----------------------------------------- */
+    /* ---- avatar: quiet grayscale ID thumbnail (no processing) ---------------------------------------- */
 
-    const Face = (() => {
-        const frame = $("#avatarFrame");
-        const readout = $("#faceReadout");
-        if (!frame) return { recolor() {}, setPulse() {} };
-
-        const img = $("img", frame);
-        let bpm = 64;
-
-        /* processing layers */
-        const procCanvas = document.createElement("canvas");
-        procCanvas.className = "avatar-proc";
-        const edgeCanvas = document.createElement("canvas");
-        edgeCanvas.className = "avatar-edges";
-        frame.append(procCanvas, edgeCanvas);
-
-        let edgeMap = null, pw = 0, ph = 0;
-
-        const boxBlur = (src, w, h, r) => {
-            const out = new Float32Array(src.length);
-            const tmp = new Float32Array(src.length);
-            const span = 2 * r + 1;
-            for (let y = 0; y < h; y++) {            // horizontal pass
-                let acc = 0;
-                for (let x = -r; x <= r; x++) acc += src[y * w + Math.min(w - 1, Math.max(0, x))];
-                for (let x = 0; x < w; x++) {
-                    tmp[y * w + x] = acc / span;
-                    acc += src[y * w + Math.min(w - 1, x + r + 1)] - src[y * w + Math.max(0, x - r)];
-                }
-            }
-            for (let x = 0; x < w; x++) {            // vertical pass
-                let acc = 0;
-                for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
-                for (let y = 0; y < h; y++) {
-                    out[y * w + x] = acc / span;
-                    acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
-                }
-            }
-            return out;
-        };
-
-        const accentRgb = () => {
-            const c = getComputedStyle(root).getPropertyValue("--accent").trim();
-            return c.startsWith("#") && c.length >= 7 ? hexRgb(c) : [61, 245, 140];
-        };
-
-        const drawEdges = () => {
-            if (!edgeMap) return;
-            const ec = edgeCanvas.getContext("2d");
-            const id = ec.createImageData(pw, ph);
-            const [r, g, b] = accentRgb();
-            for (let i = 0; i < edgeMap.length; i++) {
-                const a = edgeMap[i];
-                if (!a) continue;
-                const o = i * 4;
-                id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = a;
-            }
-            ec.putImageData(id, 0, 0);
-        };
-
-        const process = () => {
-            pw = Math.min(512, img.naturalWidth || 512);
-            ph = Math.min(512, img.naturalHeight || 512);
-            if (!pw || !ph) return;
-            const off = document.createElement("canvas");
-            off.width = pw; off.height = ph;
-            const oc = off.getContext("2d", { willReadFrequently: true });
-            oc.drawImage(img, 0, 0, pw, ph);
-            let data;
-            try { data = oc.getImageData(0, 0, pw, ph).data; }
-            catch { return; }                         // tainted canvas (file://) — img fallback stays
-            const N = pw * ph;
-            const gray = new Float32Array(N);
-            for (let i = 0; i < N; i++) {
-                const o = i * 4;
-                gray[i] = data[o] * .299 + data[o + 1] * .587 + data[o + 2] * .114;
-            }
-            /* unsharp mask = the "deblur": original + k·(original − gaussian) */
-            const soft = boxBlur(boxBlur(gray, pw, ph, 2), pw, ph, 2);
-            const sharp = new Float32Array(N);
-            for (let i = 0; i < N; i++) sharp[i] = Math.max(0, Math.min(255, gray[i] + 1.5 * (gray[i] - soft[i])));
-
-            procCanvas.width = pw; procCanvas.height = ph;
-            const pc = procCanvas.getContext("2d");
-            const pd = pc.createImageData(pw, ph);
-            for (let i = 0; i < N; i++) {
-                const v = Math.max(0, Math.min(255, (sharp[i] - 128) * 1.12 + 116));
-                const o = i * 4;
-                pd.data[o] = pd.data[o + 1] = pd.data[o + 2] = v;
-                pd.data[o + 3] = 255;
-            }
-            pc.putImageData(pd, 0, 0);
-
-            /* Sobel over the sharpened field -> contour map */
-            edgeMap = new Uint8ClampedArray(N);
-            for (let y = 1; y < ph - 1; y++) {
-                for (let x = 1; x < pw - 1; x++) {
-                    const i = y * pw + x;
-                    const gx = -sharp[i - pw - 1] - 2 * sharp[i - 1] - sharp[i + pw - 1]
-                             + sharp[i - pw + 1] + 2 * sharp[i + 1] + sharp[i + pw + 1];
-                    const gy = -sharp[i - pw - 1] - 2 * sharp[i - pw] - sharp[i - pw + 1]
-                             + sharp[i + pw - 1] + 2 * sharp[i + pw] + sharp[i + pw + 1];
-                    const mag = Math.sqrt(gx * gx + gy * gy);
-                    edgeMap[i] = mag > 70 ? Math.min(220, (mag - 70) * 1.6) : 0;
-                }
-            }
-            edgeCanvas.width = pw; edgeCanvas.height = ph;
-            drawEdges();
-            if (readout) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
-        };
-        if (img) {
-            if (img.complete && img.naturalWidth) process();
-            else img.addEventListener("load", process, { once: true });
-        }
-
-        const setPulse = (v) => {
-            bpm = v;
-            if (readout && !hovering) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
-        };
-        let hovering = false;
-
-        frame.addEventListener("pointermove", (e) => {
-            const r = frame.getBoundingClientRect();
-            const nx = Math.abs((e.clientX - r.left) / r.width - 0.5) * 2;
-            const ny = Math.abs((e.clientY - r.top) / r.height - 0.5) * 2;
-            if (readout) readout.textContent =
-                `BIO-SCAN v3.0 · LOCK ${(96.8 + nx + ny).toFixed(1)}% · PULSE ${Math.round(bpm)}`;
-        });
-        frame.addEventListener("pointerenter", () => {
-            hovering = true;
-            Sound.blip(1800, .05, .03);
-        });
-        frame.addEventListener("pointerleave", () => {
-            hovering = false;
-            if (readout) readout.textContent = `BIO-SCAN v3.0 · PULSE ${Math.round(bpm)}`;
-        });
-
-        return { recolor: drawEdges, setPulse };
-    })();
+    const Face = { recolor() {}, setPulse() {} };
 
     /* ---- simulated vitals: bounded random walks, pulse feeds the bio-scan readout ------------------ */
 
