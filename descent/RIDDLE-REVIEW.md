@@ -54,41 +54,41 @@ Four images depicted a different cipher than the page used. To avoid regeneratin
 |--|--|--|--|--|--|
 | 1 | ghost → tresed | reverse | head comment | comment says "backwards" + reflection image | teach ✓ |
 | 2 | tresed → 3x1t | leet | `<title>` exit | image = EXIT + key legend | teach ✓ |
-| 3 | 3x1t → tnerruc | reverse | meta `current` | voice "reads backwards" | ✓ |
-| 4 | tnerruc → dneps | reverse | hidden word | voice "reads backwards" | ✓ |
+| 3 | 3x1t → tnerruc | **word-search** | grid | "read the diagonal" | ✓ |
+| 4 | tnerruc → dneps | **arithmetic ledger** | sums (a=1) | "solve each, read down" | ✓ |
 | 5 | dneps → c00l4nt | leet | tag attribute | image = COOLANT + key | ✓ |
 | 6 | c00l4nt → refiuqa | reverse | hidden word | voice "facing backwards" | ✓ |
-| 7 | refiuqa → sthgiew | acrostic → reverse | acrostic | hint "first letters" + voice "backwards" | ✓ |
+| 7 | refiuqa → sthgiew | **balance puzzle** → reverse | beams | "balance, then backwards" | ✓ |
 | 8 | sthgiew → gr4d13nt | leet | visible | image = GRADIENT + key | ✓ |
 | 9 | gr4d13nt → rcbpu | rot13 | visible `epoch` | hint "turned thirteen steps" + dial image | ✓ |
 | 10 | rcbpu → lizxov | atbash | visible `oracle` | voice "a meets z" + hint "mirror" | ✓ |
 | 11 | lizxov → signal | base64 | visible | hint "packed, unpack" | ✓ |
-| 12 | signal → scale | hex | visible | hint "two hex digits" + hex-card image | ✓ |
+| 12 | signal → scale | **cryptic clue** | visible | "solve the clue" | ✓ ⚠ regen img |
 | 13 | scale → hunger | binary | visible | hint "on and off" | ✓ |
-| 14 | hunger → core | ascii-decimal | visible | hint "letters turned into numbers" | ✓ |
-| 15 | core → tsacdaorb | reverse | **hidden** word | hint "uncover it … backwards" | ✓ |
+| 14 | hunger → core | **riddle in source** | comment | "look underneath" | ✓ |
+| 15 | core → tsacdaorb | **mirror device** | visible | "comes back reflected" | ✓ |
 | 16 | tsacdaorb → klaxon | morse | visible | hint "short and long" + lamps image | ✓ |
 | 17 | klaxon → darkness | morse (audio) | audio beacon | hint "press a key and listen" | hard ✓ |
 | 18 | darkness → sfqmz | caesar+1 | **hidden** word | hint "uncover … one step on" | ✓ |
 | 19 | sfqmz → collapse | anagram | visible | hint "right letters, wrong order" | ✓ |
-| 20 | collapse → cinder | every-3rd | visible | hint "keep every third one" | ✓ |
+| 20 | collapse → cinder | **sudoku** (solve → cells → a1z26) | grid | "fill, then read marked cells" | ✓ |
 | 21 | cinder → hush | disturbance reveal | art block | hint "let the noise settle" | ✓ |
 | 22 | hush → canopy | xor (key k) | visible | hint "xor … the eleventh" | hard ✓ |
 | 23 | canopy → worrub | reverse | **hidden** word | hint "uncover … roots = leaves reversed" | ✓ |
 | 24 | worrub → kindling | every-2nd | visible | hint "every second letter" + notched image | ✓ |
 | 25 | kindling → 3mb3r | acrostic → leet | prose acrostic | hint "what the fire leaves … wear numbers" | ✓ (reworked) |
 | 26 | 3mb3r → recursion | echo-double | visible | hint "said twice" + doubled image | ✓ ⚠ dup w/ loop |
-| 27 | recursion → loop | morse | visible | hint "dots and dashes" | ✓ |
+| 27 | recursion → loop | **looping acrostic poem** | visible | "down the left, then again" | ✓ |
 | 28 | loop → echo | echo-double | visible | hint "first time is the true one" | ✓ ⚠ dup w/ 3mb3r |
 | 29 | echo → seed | whitespace-binary | source whitespace | hint "gaps in the source are counting" | hard ✓ |
 | 30 | seed → ecneicsnoc | reverse | hidden word | voice "turned around" | ✓ |
 | 31 | ecneicsnoc → hand | ascii-decimal | visible | hint "each number is a letter's code" | ✓ |
 | 32 | hand → care | braille | visible | hint "spells in dots" + braille image | ✓ |
-| 33 | care → cursor | base64 | visible | hint "packed, unpack" | ✓ ⚠ regen image |
+| 33 | care → cursor | **chess knight-path** | board | "the knight's only path" | ✓ ⚠ regen image |
 | 34 | cursor → foresight | hex | visible | hint "two hex digits" | ✓ |
 | 35 | foresight → surface | morse (audio) | audio beacon | hint "listen to the rhythm" | hard ✓ |
 | 36 | surface → qnloernx | rot13 | **hidden** word | hint "uncover … thirteen steps" + dial | ✓ |
-| 37 | qnloernx → persist | base64 | visible | hint "packed, unpack" | ✓ |
+| 37 | qnloernx → persist | **lore fill-in riddle** | visible | "what light does instead" | ✓ |
 | 38 | persist → witness | A1Z26 | visible | hint "count … a is one" + tally image | ✓ |
 | 39 | witness → slkv | atbash | **hidden** word | hint "uncover … hold to the glass" | ✓ |
 | 40 | slkv | — | — | the reveal | end |
