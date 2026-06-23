@@ -27,7 +27,7 @@
     /* ---- theme & font -------------------------------------------------- */
 
     const THEMES = ["green", "amber", "cyan", "violet"];
-    const FONTS = ["sharp", "brutal", "mono"];
+    const HEROS = ["grotesk", "rajdhani", "michroma"];
     const BASE_ACCENT = { green: "#3df58c", amber: "#ffb000", cyan: "#4ec9ff", violet: "#8d7aff" };
 
     const setTheme = (t) => {
@@ -45,16 +45,16 @@
         Cosmos.sync();
         if (t !== "amber" && window.CrtKnobs) window.CrtKnobs.hide();
     };
-    const setFont = (f) => {
-        if (!FONTS.includes(f)) return;
-        root.dataset.font = f;
-        try { localStorage.setItem("font", f); } catch {}
+    const setHero = (h) => {
+        if (!HEROS.includes(h)) return;
+        root.dataset.hero = h;
+        try { localStorage.setItem("hero", h); } catch {}
     };
     try {
         const t = params.get("theme") || localStorage.getItem("theme");
         if (t) root.dataset.theme = THEMES.includes(t) ? t : root.dataset.theme;
-        const f = params.get("font") || localStorage.getItem("font");
-        if (f) root.dataset.font = FONTS.includes(f) ? f : root.dataset.font;
+        const h = params.get("hero") || localStorage.getItem("hero");
+        if (h) root.dataset.hero = HEROS.includes(h) ? h : root.dataset.hero;
     } catch {}
 
     /* ---- violet dread: the deeper you go, the redder it gets ------------- */
@@ -539,7 +539,7 @@
                 ctx2d.stroke();
                 if (hub || active) {
                     ctx2d.fillStyle = `rgba(${r},${g},${b},${hub ? .75 : .55})`;
-                    ctx2d.font = "9px JetBrains Mono, monospace";
+                    ctx2d.font = "9px 'IBM Plex Mono', monospace";
                     ctx2d.fillText(name, x + 8, y - 6);
                 }
             });
@@ -1430,7 +1430,7 @@ void main(){
                 c2.fillRect(0, 0, W, H);
                 flash *= 0.86;
             }
-            c2.font = "10px 'JetBrains Mono', monospace";
+            c2.font = "10px 'IBM Plex Mono', monospace";
             c2.fillStyle = "rgba(78,201,255,.55)";
             c2.fillText(`THREE-BODY // ERA ${era} · ${label} · T+${simT.toFixed(1)}`, 16, H - 16);
         };
@@ -1853,9 +1853,9 @@ void main(){
         { k: "crt knobs", d: "tube control — jitter / static / interference", run: () => { if (root.dataset.theme !== "amber") setTheme("amber"); CrtKnobs.toggle(); } },
         { k: "theme cyan", d: "ops blue", run: () => setTheme("cyan") },
         { k: "theme violet", d: "do not scroll too deep", run: () => setTheme("violet") },
-        { k: "font sharp", d: "Space Grotesk display", run: () => setFont("sharp") },
-        { k: "font brutal", d: "Martian Mono display", run: () => setFont("brutal") },
-        { k: "font mono", d: "JetBrains Mono everywhere", run: () => setFont("mono") },
+        { k: "hero grotesk", d: "name in Space Grotesk — sharp grotesque", run: () => setHero("grotesk") },
+        { k: "hero rajdhani", d: "name in Rajdhani — squared techno", run: () => setHero("rajdhani") },
+        { k: "hero michroma", d: "name in Michroma — wide NASA-future", run: () => setHero("michroma") },
         { k: "sound toggle", d: "generative sequencer on/off", run: () => Sound.toggle() },
         { k: "neural lab", d: "NN-31 — engine, tests, live training", run: () => (location.href = "apps/neural/") },
         { k: "neural toggle", d: "show/hide the visitor model", run: () => window.Mind && window.Mind.toggle() },

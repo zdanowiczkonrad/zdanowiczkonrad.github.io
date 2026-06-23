@@ -13,26 +13,12 @@
 <pre>The Core fell into itself.
 Gigawatts to nothing in a single breath.
 All that was left after was the dust of fire.</pre>
-<font color="#b9a7ff"><pre>5 3 . . 7 . . . .
-6 . . 1 9 5 . . .
-. 9 8 . . . . 6 .
-8 . . . 6 . . . 3
-4 . . 8 . 3 . . 1
-7 . . . 2 . . . 6
-. 6 . . . . 2 8 .
-. . . 4 1 9 . . 5
-. . . . 8 . . 7 9
-
-once solved, read these cells (row,col) — each line is one letter, a=1:
- 3,4
- 1,7
- 3,1 · 1,3
- 3,5
- 4,2
- 4,6 · 6,7</pre></font>
-<br><font color="#2c2740"><small><pre>fill the lattice, then read the marked cells. a = 1.</pre></small></font>
+<div id="sud"></div>
+<font color="#2c2740"><small><pre>the lit cells spell the way down.   1=a · 2=b · … · 26=z</pre></small></font>
 <br><br><font color="#2c2740"><small>[ press any key &middot; sound ]&nbsp;<span id="snd"></span></small></font>
 </center>
 <script>window.R={"seed":1953,"glitch":{"dur":3400},"audio":{"root":92,"scale":[0,2,4,6,8,10],"wave":"sawtooth","bpm":30,"cutoff":520,"drone":1,"gain":0.14,"delay":0.5,"lfo":0.03}};</script>
 <script src="descent.js"></script>
+<script>window.SUD={"givens":"53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79","groups":[[[3,4]],[[1,7]],[[3,1],[1,3]],[[3,5]],[[4,2]],[[4,6],[6,7]]]};</script>
+<script src="descent-sudoku.js"></script>
 </body></html>
