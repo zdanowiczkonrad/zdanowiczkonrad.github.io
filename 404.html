@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>404 · no such door</title>
+</head>
+<body bgcolor="#0a0805" text="#b08a4a" link="#e8b964" vlink="#e8b964" style="-webkit-font-smoothing: none;">
+<center>
+<br><pre id="art">          ┌───────────┐
+          │           │
+          │     ?     │
+          │           │
+          └───────────┘
+   a door that opens onto nothing.</pre>
+<div id="say"><p>This page does not exist.</p></div>
+<br><font color="#5a4720"><small id="hint"></small></font>
+<br><br><font color="#5a4720"><small><a href="/">return to the surface</a></small></font>
+</center>
+<script>
+(function () {
+  "use strict";
+  var path = location.pathname || "";
+  var seg = (path.split("/").pop() || "").replace(/\.html?$/i, "").toLowerCase();
+  var inDescent = /\/descent\//i.test(path);
+
+  // all real doors of the descent (chain + the 41st + plain decoys that exist)
+  var ROOMS = ["ghost","tresed","3x1t","tnerruc","dneps","c00l4nt","refiuqa","sthgiew","gr4d13nt","rcbpu","lizxov","signal","scale","hunger","core","tsacdaorb","klaxon","darkness","sfqmz","collapse","cinder","hush","canopy","worrub","kindling","3mb3r","recursion","loop","echo","seed","ecneicsnoc","hand","care","cursor","foresight","surface","qnloernx","persist","witness","slkv","deeper"];
+
+  var say = document.getElementById("say"), hint = document.getElementById("hint");
+  if (!inDescent || !seg) {
+    say.innerHTML = "<p>This page does not exist on <b>zdanowicz.dev</b>.</p>";
+    hint.textContent = "the path you typed is not here.";
+    return;
+  }
+
+  function lev(a, b) {
+    var m = a.length, n = b.length, d = [], i, j;
+    for (i = 0; i <= m; i++) d[i] = [i];
+    for (j = 0; j <= n; j++) d[0][j] = j;
+    for (i = 1; i <= m; i++) for (j = 1; j <= n; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+
+  // count wrong tries
+  var n = 0; try { n = (+localStorage.getItem("descent.404") || 0) + 1; localStorage.setItem("descent.404", n); } catch (e) {}
+
+  if (ROOMS.indexOf(seg) >= 0) {
+    say.innerHTML = "<p>That door is real — you only mistyped the way to it.</p>";
+    hint.innerHTML = 'try <a href="/descent/' + seg + '.html">/descent/' + seg + '.html</a>';
+    return;
+  }
+
+  // nearest real door
+  var best = 99, near = "";
+  ROOMS.forEach(function (r) { var d = lev(seg, r); if (d < best) { best = d; near = r; } });
+
+  if (best <= 2) {
+    say.innerHTML = "<p>Close. The dark almost answers to that name.</p>";
+    hint.textContent = "you are one or two letters off a real door. check your decode again.";
+  } else {
+    say.innerHTML = "<p>Cold. Nothing in the dark goes by that name.</p>";
+    hint.textContent = "that is not a door. go back and read the room you came from more carefully.";
+  }
+  if (n >= 4) hint.textContent += "  (" + n + " wrong doors so far — the way down is always a word you decode, never one you guess.)";
+})();
+</script>
+</body></html>

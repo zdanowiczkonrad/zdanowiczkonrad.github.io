@@ -1,8 +1,18 @@
-/* gen-descent.js — DEV TOOL (not shipped). Emits the 40 pure-HTML riddle pages.
-   Each page: no CSS (bgcolor/text/<pre>/<font>), the disturbance + music come from
-   descent.js. The next filename is an obfuscated token; the page hides it with an
-   escalating technique. Self-tests assert every cipher decodes to the next file. */
+/* gen-descent.js — ⚠️ DEPRECATED / DO NOT RUN. ⚠️
+   This emits the ORIGINAL cipher-only pages. The live descent/*.html have since been
+   advanced far beyond it (images + alt, voice comments, refined hints, and the plan-#495
+   interactive/time/state/look mechanics driven by descent-mech.js). Running this script
+   OVERWRITES and REGRESSES every page — it strips images, voices, and all reworked rooms.
+   It is kept only as a record of the original chain + ciphers. To change a room, edit the
+   page directly (or the rework transform), then run the chain verifier. Self-tests below
+   still assert the fixed answer-word chain, which the live pages preserve unchanged. */
 "use strict";
+if (require.main === module && !process.env.I_KNOW_THIS_REGRESSES) {
+  console.error("REFUSING TO RUN: gen-descent.js is deprecated and would regress the live pages.\n" +
+    "The live descent/*.html are hand-advanced (images, voices, plan-#495 mechanics).\n" +
+    "If you truly want the original cipher-only pages, set I_KNOW_THIS_REGRESSES=1.");
+  process.exit(2);
+}
 const fs = require("fs");
 
 /* ---------- ciphers ---------- */

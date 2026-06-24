@@ -4,23 +4,21 @@
 <title>the klaxon</title>
 </head>
 <body bgcolor="#0c0605" text="#9a6a5e" link="#ff5a3c" vlink="#ff5a3c" style="-webkit-font-smoothing: none;">
-<!--voice: the bells are the message. eyes won't help. -->
+<!--voice: it is going out. read it fast, or read it twice. -->
 <center>
-<br><pre id="art">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+<br><pre id="art" accesskey="f">▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
    ·  D E S C E N T  ·  17 / 40  ·
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</pre>
-<img src="arts/klaxon.png" alt="A single red alarm beacon sweeping its light across an empty machine room." width="320" border="0">
+<img src="arts/klaxon.png" alt="A dying CRT; as its light gutters, a faint reflection surfaces in the dark glass, then dissolves." width="320" border="0">
 <p>The alarm was not a warning to us.<br>
 It was the sound of the Core being heard.<br>
 Something out in the dark turned toward it.</p>
-<br><font color="#41201a"><small>no letters — the bells are the message.<br>
-press a key. watch the trace, listen, note the pips.<br>
-short = dit · long = dah · gaps split the letters.</small></font>
-<br><canvas id="sig" width="320" height="120" style="display:block;margin:10px auto;border:1px solid #41201a;background:#0c0605"></canvas>
+<div id="mech"><noscript>this room moves — turn on JavaScript to play it.</noscript></div>
+<br><font color="#41201a"><small>the screen is dying. what surfaces is only its reflection in the dark glass.</small></font>
 <br><br><font color="#41201a"><small>[ press any key &middot; sound ]&nbsp;<span id="snd"></span></small></font>
 </center>
 <script>window.R={"seed":1662,"glitch":{"dur":3280},"audio":{"root":98,"scale":[0,1,3,6,7,8,11],"wave":"sawtooth","bpm":54,"cutoff":600,"drone":6,"gain":0.15,"delay":0.3,"lfo":0.08}};</script>
 <script src="descent.js"></script>
-<script>window.SIG={"mode":"morse","unit":240,"sig":[3,-1,1,-1,1,-3,1,-1,3,-3,1,-1,3,-1,1,-3,3,-1,1,-1,3,-3,3,-1,1,-3,1,-3,1,-1,1,-1,1,-3,1,-1,1,-1,1]};</script>
-<script src="descent-signal.js"></script>
+<script>window.M={"type":"decay","next":String.fromCharCode(100,97,114,107,110,101,115,115)};</script>
+<script src="descent-mech.js"></script>
 </body></html>

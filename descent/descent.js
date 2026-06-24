@@ -31,7 +31,9 @@
       if (el < dur) requestAnimationFrame(frame);
       else { art.textContent = truth; idle(); }
     }
-    requestAnimationFrame(frame);
+    // respect reduced-motion: show the settled art at once, no glitch, no flicker
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) art.textContent = truth;
+    else requestAnimationFrame(frame);
 
     function idle() {            // rare single-char flicker, fading out over ~30s
       var start = performance.now();

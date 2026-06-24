@@ -1,7 +1,6 @@
 /* descent-sudoku.js — an interactive sudoku gate.
    window.SUD = { givens:"<81 chars, '.'=empty>", groups:[ [[r,c],...], ... ] }
-   Each group's filled cells concatenate to a number -> a letter (1=a … 26=z),
-   read in group order to spell the way down. Only the group cells are marked.
+   Each group's filled cells form a value; only the group cells are marked.
    Renders into <div id="sud">. No prose hints — the grid carries it. */
 (function () {
   "use strict";
@@ -91,7 +90,7 @@
     for (var r = 1; r <= 9; r++) for (var c = 1; c <= 9; c++) if (!val(r + "," + c)) allFilled = false;
     var solved = allFilled && !Object.keys(bad).length;
     read.style.color = solved ? AC : DIM;
-    msg.textContent = solved ? "the lid is open. the word is the way down." : "";
+    msg.textContent = solved ? "the lid is open." : "";
     msg.style.color = AC;
   }
   update();
