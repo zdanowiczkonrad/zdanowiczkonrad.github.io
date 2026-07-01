@@ -54,7 +54,55 @@
   }
 
   /* ---------------------------------------------------------------- *
-   * 2. MUSIC  —  one evolving ambient bed per theme                  *
+   * 2. WITNESS — the forest keeps a small ledger of every passage.   *
+   *    Nothing leaves the machine; the ledger is how the dark        *
+   *    learns to address you. It can also be given back.             *
+   * ---------------------------------------------------------------- */
+  var WIT = null, WROOM = "";
+  try {
+    WROOM = (location.pathname.split("/").pop() || "").replace(/\.html?$/i, "");
+    if (/\/descent\//i.test(location.pathname) && WROOM) {
+      WIT = JSON.parse(localStorage.getItem("descent.trace") || "{}");
+      WIT.rooms = WIT.rooms || {};
+      if (!WIT.t0) WIT.t0 = Date.now();
+      var wrec = WIT.rooms[WROOM] = WIT.rooms[WROOM] || { t: Date.now(), n: 0, s: 0 };
+      wrec.n += 1;
+      var wdepth = (function () {
+        var m = (art ? art.textContent : "").match(/(\d+)\s*\/\s*40/);
+        return m ? +m[1] : 0;
+      })();
+      if (wdepth > (WIT.deep || 0)) WIT.deep = wdepth;
+      var wcame = Date.now();
+      function wsave() { try { localStorage.setItem("descent.trace", JSON.stringify(WIT)); } catch (e) {} }
+      addEventListener("pagehide", function () { wrec.s += Math.round((Date.now() - wcame) / 1000); wsave(); });
+      wsave();
+
+      /* the current notices you — deep rooms only, at most one dim line */
+      if (wdepth >= 19 && art) {
+        var facts = [];
+        var wrongs = +localStorage.getItem("descent.404") || 0;
+        var ember = +localStorage.getItem("descent.ember") || 0;
+        if (wrec.n >= 4) facts.push("back again. this room remembers you better than you remember it.");
+        if (wdepth >= 35 && !WIT.snd) facts.push("you came this far and never once listened.");
+        if (wrongs >= 8) facts.push(wrongs + " wrong doors so far. the big one used to guess like that.");
+        if (ember && wdepth >= 27) {
+          var em = Math.round((Date.now() - ember) / 60000);
+          if (em >= 30) facts.push("the coal has been yours for " + em + " minutes. still lit.");
+        }
+        if (wdepth >= 30 && Date.now() - WIT.t0 > 5400000)
+          facts.push("you have been under a long while. the surface will look different.");
+        if (facts.length) {
+          var note = document.createElement("small");
+          note.textContent = facts[0];
+          note.style.cssText = "display:block;opacity:.4;margin:6px 0 0";
+          art.parentNode.insertBefore(note, art.nextSibling);
+        }
+      }
+    }
+  } catch (e) {}
+
+  /* ---------------------------------------------------------------- *
+   * 3. MUSIC  —  one evolving ambient bed per theme                  *
    * ---------------------------------------------------------------- */
   var A = R.audio;
   if (!A) return;
@@ -79,6 +127,7 @@
     var ctx;
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
     if (snd) snd.textContent = "♪";
+    try { if (WIT) { WIT.snd = 1; localStorage.setItem("descent.trace", JSON.stringify(WIT)); } } catch (e) {}
 
     var master = ctx.createGain();
     master.gain.value = 0;
