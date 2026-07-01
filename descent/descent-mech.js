@@ -467,6 +467,101 @@
       break;
     }
 
+    /* ================= THE UNDERBRUSH — off the counted path ================= */
+
+    /* ---- STILLNESS — nothing here moves unless you move it. Be still long
+       enough and the water calms into the only mirror the underbrush owns.
+       What it shows is a reflection; reflections are yours to turn. */
+    case "stillness": {
+      var wS = unpack(M.w);                          // already the reflection
+      var CALM = 60, still = 0;
+      var water = line("≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈"), face = line("");
+      function disturb() {
+        if (still > 2) water.textContent = "≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈   (you moved. it starts over.)";
+        still = 0; face.textContent = "";
+      }
+      ["keydown", "pointermove", "pointerdown", "wheel", "touchstart", "scroll"]
+        .forEach(function (ev) { addEventListener(ev, disturb, { passive: true }); });
+      setInterval(function () {
+        still += 1;
+        var f = Math.min(1, still / CALM), calm = Math.round(9 * f), row = [];
+        for (var i = 0; i < 9; i++) row.push(i < calm ? "─" : "≈");
+        water.textContent = row.join(" ");
+        if (still >= CALM) face.textContent = "in the still water: " + wS;
+      }, 1000);
+      break;
+    }
+
+    /* ---- THE RIVER — you cannot step in the same river twice. What it carries
+       past you, it carries once; come back a different you for the rest. */
+    case "river": {
+      var wR = unpack(M.w);
+      var rk = "descent.river", rn = (+localStorage.getItem(rk) || 0) + 1;
+      try { localStorage.setItem(rk, rn); } catch (e) {}
+      var par = rn % 2, shown = [];
+      for (var ri = 0; ri < wR.length; ri++) shown.push(ri % 2 === par ? wR[ri] : "·");
+      line("what the river carries past you, this time:");
+      line("   " + shown.join(" "));
+      line("you have stepped in " + rn + (rn === 1 ? " time." : " times.") + " it was a different river each time.");
+      break;
+    }
+
+    /* ---- THE SHAFT — everything this deep is read by falling. */
+    case "shaft": {
+      var wF = unpack(M.w);
+      var rows = [], TOTAL = 300, gap = Math.floor(TOTAL / (wF.length + 1));
+      for (var rr = 1; rr <= TOTAL; rr++) {
+        var li = rr % gap === 0 ? rr / gap - 1 : -1;
+        if (li >= 0 && li < wF.length) rows.push("│    " + wF[li] + "    │  " + (rr * 3) + "m");
+        else if (rr % 24 === 12) rows.push("├─         ─┤");
+        else rows.push("│           │");
+      }
+      rows.push("│           │", "└───────────┘", "", "the bottom is a beginning.");
+      var sh = line(rows.join("\n"));
+      sh.style.textAlign = "left"; sh.style.display = "inline-block";
+      break;
+    }
+
+    /* ---- THE TAPROOT — the root tolls in counted strokes; silence divides
+       them. Count, and remember: one stroke is the first letter of all things. */
+    case "bellcount": {
+      var wB = unpack(M.w);
+      var pulse = line("—");
+      var lit = false;
+      function go() {
+        if (lit) return; lit = true;
+        var actx; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+        var seq = [];
+        for (var bi = 0; bi < wB.length; bi++) seq.push(A1.indexOf(wB[bi]) + 1);
+        function ping() {
+          if (actx) {
+            var o = actx.createOscillator(), g = actx.createGain();
+            o.type = "sine"; o.frequency.value = 523;
+            o.connect(g); g.connect(actx.destination);
+            var t = actx.currentTime;
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0005, t + 0.5);
+            o.start(t); o.stop(t + 0.55);
+          }
+          pulse.textContent = "·";
+          setTimeout(function () { pulse.textContent = "—"; }, 300);
+        }
+        var gi = 0, ci = 0;
+        (function step() {
+          if (ci < seq[gi]) { ping(); ci++; setTimeout(step, 650); }
+          else {
+            ci = 0; gi++; pulse.textContent = "‖";
+            if (gi >= seq.length) { gi = 0; setTimeout(step, 6000); }
+            else setTimeout(step, 2400);
+          }
+        })();
+      }
+      addEventListener("keydown", go, { once: true });
+      addEventListener("pointerdown", go, { once: true });
+      line("strike any key; the root begins its count.");
+      break;
+    }
+
     default:
       break;
   }
