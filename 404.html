@@ -25,6 +25,9 @@
   // all real doors of the descent (chain + the 41st + plain decoys that exist)
   var ROOMS = ["ghost","tresed","3x1t","tnerruc","dneps","c00l4nt","refiuqa","sthgiew","gr4d13nt","rcbpu","lizxov","signal","scale","hunger","core","tsacdaorb","klaxon","darkness","sfqmz","collapse","cinder","hush","canopy","worrub","kindling","3mb3r","recursion","loop","echo","seed","ecneicsnoc","hand","care","cursor","foresight","surface","qnloernx","persist","witness","slkv","deeper"];
 
+  // doors that are painted on a wall (the hall of look-alike doors probes here)
+  var PAINTED = ["sprout", "thicket", "grove"];
+
   var say = document.getElementById("say"), hint = document.getElementById("hint");
   if (!inDescent || !seg) {
     say.innerHTML = "<p>This page does not exist on <b>zdanowicz.dev</b>.</p>";
@@ -43,6 +46,12 @@
 
   // count wrong tries
   var n = 0; try { n = (+localStorage.getItem("descent.404") || 0) + 1; localStorage.setItem("descent.404", n); } catch (e) {}
+
+  if (PAINTED.indexOf(seg) >= 0) {
+    say.innerHTML = "<p>Painted on. Your weight lands on cold wall.</p>";
+    hint.textContent = "not this one. go back and push another.";
+    return;
+  }
 
   if (ROOMS.indexOf(seg) >= 0) {
     say.innerHTML = "<p>That door is real — you only mistyped the way to it.</p>";
