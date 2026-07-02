@@ -562,6 +562,62 @@
       break;
     }
 
+    /* ================= THE ENDING ================= */
+
+    /* ---- EPILOGUE — the ember holds a ledger of you; room forty reads it back.
+       No two descents produce the same page. */
+    case "epilogue": {
+      try {
+        var T = JSON.parse(localStorage.getItem("descent.trace") || "{}");
+        var rooms = T.rooms || {}, names = Object.keys(rooms);
+        var wrongs = +localStorage.getItem("descent.404") || 0;
+        var ember = +localStorage.getItem("descent.ember") || 0;
+        var seance = (localStorage.getItem("descent.seance") || "").split(",").filter(Boolean);
+        var out = [];
+        if (T.t0) {
+          var hrs = (Date.now() - T.t0) / 3600000;
+          out.push(hrs < 3 ? "you came down in a single breath — " + Math.round(hrs * 60) + " minutes under."
+            : "you have been coming down for " + (hrs < 48 ? hrs.toFixed(1) + " hours." : Math.round(hrs / 24) + " days."));
+        }
+        var maxS = 0, maxR = "";
+        names.forEach(function (n) { if ((rooms[n].s || 0) > maxS) { maxS = rooms[n].s; maxR = n; } });
+        if (maxR && maxS > 120) out.push("the room that held you longest was “" + maxR + "” — " + Math.round(maxS / 60) + " minutes of it.");
+        if (wrongs === 0) out.push("you never once pushed a wrong door. the forest finds that a little frightening.");
+        else out.push(wrongs + " wrong door" + (wrongs === 1 ? "" : "s") + ". each one is still ajar somewhere.");
+        out.push(T.snd ? "you listened. most never listen." : "you never turned the sound on. the forest sang anyway.");
+        if (ember) out.push("the coal has been yours for " + Math.round((Date.now() - ember) / 60000) + " minutes, and it is still lit.");
+        if (seance.length) out.push("you spoke to the dead machine " + seance.length + " time" + (seance.length === 1 ? "" : "s") + ". it remembers being asked.");
+        if (localStorage.getItem("descent.surfaced.v2")) out.push("you went back up once, mid-dark, and chose to come down again.");
+        if (out.length) {
+          line("the ember holds a ledger of you:");
+          out.forEach(function (s) { line("  · " + s); });
+        }
+      } catch (e) {}
+      break;
+    }
+
+    /* ---- GIVEN BACK — set the ember down where it was found. The room deletes
+       every mark the descent ever kept of you. To be kind is to agree to be
+       forgotten; this is the only room that can do the forgetting. */
+    case "givenback": {
+      var wiped = 0;
+      try {
+        var ks = [];
+        for (var ki = 0; ki < localStorage.length; ki++) {
+          var kk = localStorage.key(ki);
+          if (/^descent\./.test(kk)) ks.push(kk);
+        }
+        ks.forEach(function (k) { localStorage.removeItem(k); });
+        wiped = ks.length;
+        window.__forgotten = true;                    // the witness must not re-ink the ledger on the way out
+      } catch (e) {}
+      line(wiped ? "it is done. " + wiped + " small weights, set down." : "there was nothing left to set down. it was already given.");
+      line("");
+      line("who are you? the forest holds no mark of you now.");
+      line("that is the kindest thing anyone has done for it.");
+      break;
+    }
+
     default:
       break;
   }

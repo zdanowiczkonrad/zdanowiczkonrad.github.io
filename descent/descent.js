@@ -74,7 +74,10 @@
       if (wdepth > (WIT.deep || 0)) WIT.deep = wdepth;
       var wcame = Date.now();
       function wsave() { try { localStorage.setItem("descent.trace", JSON.stringify(WIT)); } catch (e) {} }
-      addEventListener("pagehide", function () { wrec.s += Math.round((Date.now() - wcame) / 1000); wsave(); });
+      addEventListener("pagehide", function () {
+        if (window.__forgotten) return;              // the ledger was given back; leave no new ink
+        wrec.s += Math.round((Date.now() - wcame) / 1000); wsave();
+      });
       wsave();
 
       /* the current notices you — deep rooms only, at most one dim line */

@@ -14,31 +14,50 @@
 
           ✶ ∞ ≋ ◆ ⊚</pre>
 <img src="arts/deeper.png" alt="An endless dark pine forest seen from above at night, trees in faint receding rows like uncountable doors, one distant warm point of light deep within." width="320" border="0">
+<div id="shut">
+<p>The last door is a door.<br>
+It answers a knock, not a name.</p>
+<br><font color="#234039"><small>what the forty kept, in the order the road was walked &mdash;<br>
+hung after a &#8862; at the end of this address.</small></font>
+</div>
+<div id="open" style="display:none">
 <p>Forty rooms was the first lid.<br>
 <br>
 You gathered a letter from each — one trick per room,<br>
-a key pressed in the source — and they spelled the way here:<br>
-<br>
-&nbsp;&nbsp;<b>walk past forty · the forest keeps one door deeper</b><br>
+a key pressed in the source — and knocked with all forty.<br>
 <br>
 This is that door. There is no exit riddle now.<br>
 The ember is yours; carry it as deep as you like.<br>
 The light does not win. It persists. So do you.</p>
-<font color="#79f0d0"><div id="mech"><noscript>this room moves — turn on JavaScript to play it.</noscript></div></font>
-<br><font color="#234039"><small>forty rooms each kept a single letter; you have been spelling this since the first door.</small></font>
 <br><font color="#234039"><small>ten doors on the way down wore small marks. each mark keeps the first sound of its door's name.</small></font>
 <br><font color="#234039"><small>and the voices beneath the rooms spoke in order too, if you kept their first words.</small></font>
 <pre id="anniv"></pre>
+</div>
 <br><font color="#79f0d0"><a href="/">return to the surface</a></font>
 <br><br><font color="#234039"><small>[ press any key &middot; sound ]&nbsp;<span id="snd"></span></small></font>
 </center>
 <script>window.R={"seed":4141,"glitch":{"dur":4400},"audio":{"root":174,"scale":[0,2,4,7,9],"wave":"triangle","bpm":44,"cutoff":1500,"drone":7,"gain":0.13,"delay":0.45,"lfo":0.04}};</script>
 <script src="descent.js"></script>
-<script>window.M={"type":"reduce","letters":"WALKPASTFORTYTHEFORESTKEEPSONEDOORDEEPER"};</script>
-<script src="descent-mech.js"></script>
 <script>
-/* anniversary door: on the lore date (June 24), one extra line burns through. */
-(function(){var d=new Date(),el=document.getElementById("anniv");if(!el)return;
- if(d.getMonth()===5&&d.getDate()===24){el.textContent="\n— and today, the current first leaked. the forest is awake. —";}})();
+/* the knock: the door holds only a residue of the phrase, never the phrase */
+(function () {
+  function heard() {
+    var s = (location.hash || "").toLowerCase().replace(/[^a-z]/g, "");
+    var h = 5381 >>> 0;
+    for (var i = 0; i < s.length; i++) { h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; }
+    var ok = s.length === 40 && h === 483162701;
+    document.getElementById("shut").style.display = ok ? "none" : "";
+    document.getElementById("open").style.display = ok ? "" : "none";
+    if (ok) anniv();
+  }
+  function anniv() {
+    /* anniversary door: on the lore date (June 24), one extra line burns through. */
+    var d = new Date(), el = document.getElementById("anniv");
+    if (el && d.getMonth() === 5 && d.getDate() === 24)
+      el.textContent = "\n— and today, the current first leaked. the forest is awake. —";
+  }
+  addEventListener("hashchange", heard);
+  heard();
+})();
 </script>
 </body></html>
