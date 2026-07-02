@@ -5,6 +5,8 @@
    and what it yields is MATERIAL — a bared name, scattered strokes, a tolling —
    never a destination. The last step is always the player's: read it, turn it,
    type it into the address bar. Nothing here prints where you are going.
+   Material is stored only in the form the screen shows, or folded once through
+   the glass (mirror) — the source is never easier than playing.
    No frameworks, no network for puzzle logic; Web-Audio/canvas only where noted. */
 (function () {
   "use strict";
@@ -48,7 +50,7 @@
     /* ---- TAB WHISPER — the oracle ticks its guess into the page title, letter
        by letter. It is too shy to write on the page itself. */
     case "tabwhisper": {
-      var w = unpack(M.w), i = 0, base = document.title;
+      var w = mirror(M.w), i = 0, base = document.title;
       setInterval(function () {
         i = (i + 1) % (w.length + 4);
         document.title = i < w.length ? "predicting: " + w.slice(0, i + 1) : base;
@@ -60,7 +62,7 @@
        figure is one letter. Every letter hides at a different setting.
        The scope shows; it never spells. Bring your own memory. */
     case "lissajous": {
-      var w12 = unpack(M.w), idx = 0;
+      var w12 = mirror(M.w), idx = 0;
       var LOCKS = [0.50, 0.22, 0.72, 0.36, 0.62, 0.45, 0.28, 0.68];
       function lockAt(i) { return Math.PI * LOCKS[i % LOCKS.length]; }
       var cv = document.createElement("canvas"); cv.width = cv.height = 300;
@@ -114,7 +116,7 @@
     /* ---- OVER-ZOOM — the name lives in the grain, broken across three specks.
        Zoom in (Ctrl/Cmd +) and read them in the order of their dust. */
     case "overzoom": {
-      var w13 = unpack(M.w);
+      var w13 = mirror(M.w);
       var third = Math.ceil(w13.length / 3);
       var parts = [w13.slice(0, third), w13.slice(third, third * 2), w13.slice(third * 2)];
       var xs = [52, 160, 266];
@@ -137,7 +139,7 @@
     /* ---- CATCH THE SECOND — the bell rings the letters one heartbeat at a time,
        and not in order. Each stroke tells its place. Hold them as they pass. */
     case "catchsecond": {
-      var w16 = unpack(M.w), n16 = w16.length, k = 0;
+      var w16 = mirror(M.w), n16 = w16.length, k = 0;
       var order = [];                                    // a fixed shuffle — the bell keeps its own habit
       for (var oi = 0; oi < n16; oi++) order.push((oi * 5 + 3) % n16);
       var flash = line("—");
@@ -154,7 +156,7 @@
        the name's reflection in the dark glass, not the name. It fades.
        A key press stirs the light — dimmer every time. */
     case "decay": {
-      var mir17 = mirror(unpack(M.w));
+      var mir17 = M.w;                                 // stored already held to the glass
       var p = line(mir17.toUpperCase());
       var op = 1, ceil = 1;
       var fade = setInterval(function () {
@@ -212,7 +214,7 @@
        are liars. At the room's one true width the honest ones stand in a single
        straight column; at every other width they scatter into drift. */
     case "rightsize": {
-      var w22 = unpack(M.w).toUpperCase();
+      var w22 = mirror(M.w).toUpperCase();
       var STRIDE = M.stride || 64, C0 = 11, ROWS = 9;
       var seed = 22011;
       function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
@@ -329,7 +331,7 @@
     /* ---- TWO TABS TALK — a single voice cannot answer itself. Open the room
        twice; what one tab says, the other hears coming back off the walls. */
     case "twotabs": {
-      var w28 = unpack(M.w);
+      var w28 = mirror(M.w);
       line("a single voice cannot answer itself. let the empty room hear you twice.");
       var seen = line("listening…");
       function offWalls(w) {
@@ -371,7 +373,7 @@
        your hand keeps moving it has the power to write. It writes the way it
        learned everything: one slow stroke at a time. Nothing is printed. */
     case "ghostdiverge": {
-      var w34 = unpack(M.w);
+      var w34 = mirror(M.w);
       var FONT = {
         a: [[0, 4], [1, 0], [2, 4], [1.6, 2.6], [0.4, 2.6]],
         c: [[2, 0.6], [1, 0], [0, 1], [0, 3], [1, 4], [2, 3.4]],
@@ -495,7 +497,7 @@
     /* ---- THE RIVER — you cannot step in the same river twice. What it carries
        past you, it carries once; come back a different you for the rest. */
     case "river": {
-      var wR = unpack(M.w);
+      var wR = mirror(M.w);
       var rk = "descent.river", rn = (+localStorage.getItem(rk) || 0) + 1;
       try { localStorage.setItem(rk, rn); } catch (e) {}
       var par = rn % 2, shown = [];
@@ -525,14 +527,14 @@
     /* ---- THE TAPROOT — the root tolls in counted strokes; silence divides
        them. Count, and remember: one stroke is the first letter of all things. */
     case "bellcount": {
-      var wB = unpack(M.w);
+      // the root keeps only the counts it tolls — it never knew the letters
+      var wB = String(M.w).trim().split(/\s+/).map(function (x) { return +x; });
       var pulse = line("—");
       var lit = false;
       function go() {
         if (lit) return; lit = true;
         var actx; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
-        var seq = [];
-        for (var bi = 0; bi < wB.length; bi++) seq.push(A1.indexOf(wB[bi]) + 1);
+        var seq = wB;
         function ping() {
           if (actx) {
             var o = actx.createOscillator(), g = actx.createGain();

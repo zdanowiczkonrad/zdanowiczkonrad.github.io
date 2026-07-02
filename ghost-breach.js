@@ -8,6 +8,10 @@
 */
 (() => {
     "use strict";
+    // the lid remembers who has stood on it — room 35 reads this from below.
+    // set on ANY surface visit, so typing "/" counts the same as clicking up.
+    try { localStorage.setItem("descent.surfaced.v2", "1"); } catch (e) {}
+
     const bar = document.querySelector(".sysmeta");
     if (!bar) return;
 

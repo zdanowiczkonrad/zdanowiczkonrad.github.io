@@ -22,11 +22,12 @@
   var seg = (path.split("/").pop() || "").replace(/\.html?$/i, "").toLowerCase();
   var inDescent = /\/descent\//i.test(path);
 
-  // all real doors of the descent (chain + the 41st + plain decoys that exist)
-  var ROOMS = ["ghost","tresed","3x1t","tnerruc","dneps","c00l4nt","refiuqa","sthgiew","gr4d13nt","rcbpu","lizxov","signal","scale","hunger","core","tsacdaorb","klaxon","darkness","sfqmz","collapse","cinder","hush","canopy","worrub","kindling","3mb3r","recursion","loop","echo","seed","ecneicsnoc","hand","care","cursor","foresight","surface","qnloernx","persist","witness","slkv","deeper"];
-
-  // doors that are painted on a wall (the hall of look-alike doors probes here)
-  var PAINTED = ["sprout", "thicket", "grove"];
+  /* the dark keeps only residues of its doors' names, never the names.
+     a residue answers "is this a door?" — it cannot be read back into a map. */
+  var REAL = {115495960:1,2085890507:1,2710601869:1,795178040:1,1077094458:1,1516371626:1,1556813124:1,1537439663:1,2087764528:1,1546361170:1,2463380526:1,626823955:1,3717751985:1,2087771070:1,3937726892:1,1550973647:1,881586098:1,1121023878:1,1121645428:1,164300553:1,2087415716:1,3006831187:1,165459672:1,2087435909:1,1253070586:1,172308130:1,172300886:1,172462030:1,3916894296:1,2003872419:1,2087808326:1,1569741370:1,1600073190:1,2087821219:1,2088047855:1,3442444641:1,1837472442:1,1420805371:1,2087658553:1,2364942655:1,520027672:1,194454067:1,3929410381:1,1381539128:1,194927455:1,195776893:1,2088334738:1,195377206:1,196036493:1,2172846523:1,2980940030:1,2088344071:1,195170185:1,1945686358:1,4185235488:1,1911559056:1,1643785478:1,2017252524:1,1720200404:1,122496570:1,1968825430:1,2109493508:1,2088209963:1,2022968010:1};
+  var PAINTED = {2146192858:1,1930298825:1,172404940:1};
+  function hh(s) { var x = 5381 >>> 0; for (var i = 0; i < s.length; i++) { x = ((x * 33) ^ s.charCodeAt(i)) >>> 0; } return x; }
+  function isReal(w) { return REAL[hh(w)] === 1; }
 
   var say = document.getElementById("say"), hint = document.getElementById("hint");
   if (!inDescent || !seg) {
@@ -35,37 +36,38 @@
     return;
   }
 
-  function lev(a, b) {
-    var m = a.length, n = b.length, d = [], i, j;
-    for (i = 0; i <= m; i++) d[i] = [i];
-    for (j = 0; j <= n; j++) d[0][j] = j;
-    for (i = 1; i <= m; i++) for (j = 1; j <= n; j++)
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    return d[m][n];
-  }
-
   // count wrong tries
   var n = 0; try { n = (+localStorage.getItem("descent.404") || 0) + 1; localStorage.setItem("descent.404", n); } catch (e) {}
 
-  if (PAINTED.indexOf(seg) >= 0) {
+  if (PAINTED[hh(seg)] === 1) {
     say.innerHTML = "<p>Painted on. Your weight lands on cold wall.</p>";
     hint.textContent = "not this one. go back and push another.";
     return;
   }
 
-  if (ROOMS.indexOf(seg) >= 0) {
+  if (isReal(seg)) {
     say.innerHTML = "<p>That door is real — you only mistyped the way to it.</p>";
     hint.innerHTML = 'try <a href="/descent/' + seg + '.html">/descent/' + seg + '.html</a>';
     return;
   }
 
-  // nearest real door
-  var best = 99, near = "";
-  ROOMS.forEach(function (r) { var d = lev(seg, r); if (d < best) { best = d; near = r; } });
+  // a single letter off a real door?
+  function oneOff(w) {
+    if (w.length < 2 || w.length > 24) return false;
+    var AB = "abcdefghijklmnopqrstuvwxyz0123456789", i, j, c;
+    for (i = 0; i < w.length; i++) if (isReal(w.slice(0, i) + w.slice(i + 1))) return true;
+    for (i = 0; i < w.length; i++) for (j = 0; j < AB.length; j++) {
+      c = AB[j];
+      if (c !== w[i] && isReal(w.slice(0, i) + c + w.slice(i + 1))) return true;
+    }
+    for (i = 0; i <= w.length; i++) for (j = 0; j < AB.length; j++)
+      if (isReal(w.slice(0, i) + AB[j] + w.slice(i))) return true;
+    return false;
+  }
 
-  if (best <= 2) {
+  if (oneOff(seg)) {
     say.innerHTML = "<p>Close. The dark almost answers to that name.</p>";
-    hint.textContent = "you are one or two letters off a real door. check your decode again.";
+    hint.textContent = "you are a single letter off a real door. check your decode again.";
   } else {
     say.innerHTML = "<p>Cold. Nothing in the dark goes by that name.</p>";
     hint.textContent = "that is not a door. go back and read the room you came from more carefully.";
